@@ -1,2 +1,4 @@
 # Local Git worktrees
 .worktrees/
+.env
+data/*.json
