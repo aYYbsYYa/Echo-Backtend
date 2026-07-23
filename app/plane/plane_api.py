@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from app.services.ai_service import generate_developer_reply
 from app.services.content_service import new_id, utc_now, validate_content
+from app.services.image_service import ImageUploadError, image_url, save_image
 from app.storage.json_repository import JsonRepository
 from app.config import Config
 from app.storage import PlaneStorage, UserStorage
@@ -36,6 +37,7 @@ def public_plane(item: dict, viewer_id: str | None = None, include_private: bool
     response = {
         "id": item["id"],
         "content": item["content"],
+        "image_url": image_url(item.get("image")),
         "nickname": author.get("nickname", "匿名旅人"),
         "avatar": author.get("avatar", "匿"),
         "region": item.get("region", "未标注"),
@@ -57,15 +59,20 @@ def public_plane(item: dict, viewer_id: str | None = None, include_private: bool
 
 @plane_bp.post("")
 def publish_plane():
-    payload = request.get_json(silent=True) or {}
+    payload = request.form if request.mimetype == "multipart/form-data" else (request.get_json(silent=True) or {})
     error = validate_content(payload.get("content"))
     user = users.find(str(payload.get("user_id", "")))
     if error or not user:
         return jsonify({"error": {"message": error or "请先创建匿名身份。"}}), 400
+    try:
+        image = save_image(request.files.get("image"))
+    except ImageUploadError as error:
+        return jsonify({"error": {"message": str(error)}}), 400
     content = payload["content"].strip()
     item = {
         "id": new_id("plane", content),
         "content": content,
+        "image": image,
         "user_id": user["id"],
         "region": user["region"],
         "created_at": utc_now(),

@@ -8,6 +8,7 @@ from app.services.content_service import (
     validate_content,
 )
 from app.services.ai_service import generate_developer_reply
+from app.services.image_service import ImageUploadError, image_url, save_image
 from app.storage import BottleStorage, UserStorage
 from app.storage.json_repository import JsonRepository
 from app.config import Config
@@ -39,6 +40,7 @@ def public_bottle(item: dict, viewer_id: str | None = None, include_private: boo
     response = {
         "id": item["id"],
         "content": item["content"],
+        "image_url": image_url(item.get("image")),
         "nickname": author.get("nickname", "匿名旅人"),
         "avatar": author.get("avatar", "匿"),
         "region": item.get("region", "未标注"),
@@ -59,17 +61,22 @@ def public_bottle(item: dict, viewer_id: str | None = None, include_private: boo
 
 @bottle_bp.post("")
 def publish_bottle():
-    payload = request.get_json(silent=True) or {}
+    payload = request.form if request.mimetype == "multipart/form-data" else (request.get_json(silent=True) or {})
     error = validate_content(payload.get("content"))
     if error:
         return jsonify({"error": {"message": error}}), 400
     user = users.find(str(payload.get("user_id", "")))
     if not user:
         return jsonify({"error": {"message": "请先创建匿名身份。"}}), 400
+    try:
+        image = save_image(request.files.get("image"))
+    except ImageUploadError as error:
+        return jsonify({"error": {"message": str(error)}}), 400
     content = payload["content"].strip()
     item = {
         "id": new_id("bottle", content),
         "content": content,
+        "image": image,
         "user_id": user["id"],
         "region": user["region"],
         "created_at": utc_now(),

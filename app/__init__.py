@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, send_from_directory
 
 from .audio.audio_api import audio_bp
 from .bottle.bottle_api import bottle_bp
@@ -23,6 +23,10 @@ def create_app() -> Flask:
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         return response
+
+    @app.get("/api/uploads/<path:filename>")
+    def uploaded_image(filename: str):
+        return send_from_directory(Config.UPLOAD_DIR, filename)
 
     @app.get("/api/health")
     def health():

@@ -23,6 +23,8 @@ AI_API_URL=
 AI_MODEL=
 SENSE_VOICE_MODEL_DIR=models/sense-voice
 SENSE_VOICE_THREADS=4
+UPLOAD_DIR=data/uploads
+MAX_IMAGE_SIZE=5242880
 ```
 
 `AI_*` 用于生成漂流瓶或纸飞机发布后的开发组回信。`AI_API_URL` 可填写完整的

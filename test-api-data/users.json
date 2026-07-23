@@ -1,0 +1,18 @@
+[
+  {
+    "id": "usr_api_author",
+    "nickname": "??",
+    "birthday": "2000-01-01",
+    "gender": "prefer_not_to_say",
+    "region": "??",
+    "avatar": "?"
+  },
+  {
+    "id": "usr_api_reader",
+    "nickname": "??",
+    "birthday": "2001-01-01",
+    "gender": "prefer_not_to_say",
+    "region": "??",
+    "avatar": "?"
+  }
+]

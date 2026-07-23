@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -57,6 +58,8 @@ class ApiFlowTests(unittest.TestCase):
         plane_api.users = self.users
         plane_api.planes = self.planes
 
+        self.original_upload_dir = Config.UPLOAD_DIR
+        Config.UPLOAD_DIR = root / "uploads"
         app = create_app()
         app.config["TESTING"] = True
         self.client = app.test_client()
@@ -70,6 +73,7 @@ class ApiFlowTests(unittest.TestCase):
             plane_api.users,
             plane_api.planes,
         ) = self.original_repositories
+        Config.UPLOAD_DIR = self.original_upload_dir
         self.temporary_directory.cleanup()
 
     def add_bottle(self, user_id: str = "usr_author") -> dict:
@@ -196,6 +200,44 @@ class ApiFlowTests(unittest.TestCase):
         self.assertEqual(body["data"]["reply"], "模型生成的回信")
         self.assertNotIn("review", body)
         generate.assert_called_once_with("海风", "杭州", "包含赌博一词但不再经过发布审核。")
+
+    def test_bottle_publish_accepts_image_and_serves_it(self) -> None:
+        image = b"\x89PNG\r\n\x1a\n" + b"test-image"
+        response = self.client.post(
+            "/api/bottles",
+            data={
+                "user_id": "usr_author",
+                "content": "一张随海漂流的图片。",
+                "image": (BytesIO(image), "shore.png"),
+            },
+            content_type="multipart/form-data",
+        )
+
+        body = response.get_json()["data"]
+        image_response = self.client.get(body["image_url"])
+        reader_view = self.client.get(
+            f"/api/bottles/{body['id']}?user_id=usr_reader"
+        ).get_json()["data"]
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(body["image_url"].startswith("/api/uploads/"))
+        self.assertEqual(reader_view["image_url"], body["image_url"])
+        self.assertEqual(image_response.status_code, 200)
+        self.assertEqual(image_response.data, image)
+
+    def test_plane_publish_rejects_invalid_image_content(self) -> None:
+        response = self.client.post(
+            "/api/planes",
+            data={
+                "user_id": "usr_author",
+                "content": "这不是一张真正的图片。",
+                "image": (BytesIO(b"plain text"), "fake.png"),
+            },
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"]["message"], "图片内容与文件格式不匹配。")
 
 
 class AiServiceTests(unittest.TestCase):

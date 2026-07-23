@@ -1,0 +1,32 @@
+[
+  {
+    "id": "bottle_0d08a46e6bedd6e8",
+    "content": "接口图文测试漂流瓶",
+    "image": "86dc7c9c2b6b4a7a9201744e14c2949e.png",
+    "user_id": "usr_api_author",
+    "region": "??",
+    "created_at": "2026-07-23T06:38:14.572096+00:00",
+    "views": 0,
+    "reply": null
+  },
+  {
+    "id": "bottle_8b4fe14cc1b7aa24",
+    "content": "接口图文测试漂流瓶",
+    "image": "8ada17d8b6c14d8fa76af0b2d118ee19.png",
+    "user_id": "usr_api_author",
+    "region": "??",
+    "created_at": "2026-07-23T06:43:49.421861+00:00",
+    "views": 1,
+    "reply": null
+  },
+  {
+    "id": "bottle_b2d39053c2bbaba7",
+    "content": "??????? JSON ??",
+    "image": null,
+    "user_id": "usr_api_author",
+    "region": "??",
+    "created_at": "2026-07-23T06:44:23.207599+00:00",
+    "views": 0,
+    "reply": null
+  }
+]

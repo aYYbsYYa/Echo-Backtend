@@ -4,11 +4,13 @@
 
 `POST /api/bottles`
 
+纯文字发布可继续使用 JSON：
+
 ```json
 {"user_id":"usr_8d2e...","content":"希望今晚的风能轻一点。"}
 ```
 
-内容长度为 1 到 500 字符。内容通过基础字段校验后写入漂流瓶，并尝试调用配置的 AI 模型生成开发组回信。AI 未配置或调用失败时，漂流瓶仍会正常发布，`reply` 为 `null`。
+图文发布使用 `multipart/form-data`，字段为 `user_id`、`content` 和可选文件 `image`。图片支持 JPEG、PNG、WebP、GIF，默认最大 5MB。成功响应通过 `image_url` 返回图片访问地址。内容长度为 1 到 500 字符，AI 未配置或调用失败时仍会正常发布，`reply` 为 `null`。
 
 ## 捞取
 

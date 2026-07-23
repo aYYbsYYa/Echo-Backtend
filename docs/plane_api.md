@@ -4,11 +4,13 @@
 
 `POST /api/planes`
 
+纯文字发布可继续使用 JSON：
+
 ```json
 {"user_id":"usr_8d2e...","content":"今天也想把一句谢谢送给陌生人。"}
 ```
 
-成功返回 `201`。服务会随机分配 `sky`、`window` 或 `tree` 场景，调用 AI 模型生成开发组回信，并由前端以对应动画表现纸飞机去向。AI 未配置或调用失败时，纸飞机仍会发布，`reply` 为 `null`。
+图文发布使用 `multipart/form-data`，字段为 `user_id`、`content` 和可选文件 `image`。图片支持 JPEG、PNG、WebP、GIF，默认最大 5MB，成功响应通过 `image_url` 返回访问地址。服务会随机分配 `sky`、`window` 或 `tree` 场景，并尝试调用 AI 模型生成开发组回信。
 
 ## 接住
 
