@@ -18,6 +18,7 @@ bottles = BottleStorage()
 users = UserStorage()
 likes = JsonRepository(Config.DATA_DIR / "likes.json")
 comments = JsonRepository(Config.DATA_DIR / "comments.json")
+BOTTLE_SCENES = ("shallow", "deep", "drift")
 
 
 def private_comments(bottle_id: str) -> list[dict]:
@@ -46,6 +47,7 @@ def public_bottle(item: dict, viewer_id: str | None = None, include_private: boo
         "region": item.get("region", "未标注"),
         "created_at": item["created_at"],
         "type": "bottle",
+        "scene": item.get("scene", "drift"),
         "views": item.get("views", 0),
         "reply": item.get("reply") if viewer_id == item["user_id"] else None,
         "is_author": viewer_id == item["user_id"],
@@ -80,6 +82,7 @@ def publish_bottle():
         "user_id": user["id"],
         "region": user["region"],
         "created_at": utc_now(),
+        "scene": random.choice(BOTTLE_SCENES),
         "views": 0,
         "reply": generate_developer_reply(user["nickname"], user["region"], content),
     }
