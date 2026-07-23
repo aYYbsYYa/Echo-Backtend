@@ -14,6 +14,10 @@ class Config:
     AI_API_KEY = os.getenv("AI_API_KEY", "")
     AI_API_URL = os.getenv("AI_API_URL", "")
     AI_MODEL = os.getenv("AI_MODEL", "")
+    SENSE_VOICE_MODEL_DIR = BASE_DIR / os.getenv(
+        "SENSE_VOICE_MODEL_DIR", "models/sense-voice"
+    )
+    SENSE_VOICE_THREADS = max(1, int(os.getenv("SENSE_VOICE_THREADS", "4")))
     JSON_FILES = ("users", "bottles", "planes", "comments", "likes")
 
     @classmethod
