@@ -54,8 +54,8 @@ docker run --rm -p 3000:3000 -v yeve-echo-data:/app/data yeve-echo-backend
 运行时在 `data/` 维护以下集合：
 
 - `users.json`：不可编辑的匿名身份
-- `bottles.json`：漂流瓶、标签、浏览量与官方回信
-- `planes.json`：纸飞机、落点场景与浏览量
+- `bottles.json`：漂流瓶、标签、浏览量与开发组回信
+- `planes.json`：纸飞机、落点场景、浏览量与开发组回信
 - `likes.json`：用户到内容的点赞关系
 - `comments.json`：仅由作者查看的留言
 

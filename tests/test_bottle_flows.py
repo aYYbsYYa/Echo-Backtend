@@ -122,6 +122,39 @@ class ApiFlowTests(unittest.TestCase):
         self.assertEqual(author_view["comments"][0]["nickname"], "远岸")
         self.assertTrue(author_view["comments"][0]["created_at"])
 
+    def test_plane_detail_returns_scene_and_author_flag(self) -> None:
+        self.planes.append(
+            {
+                "id": "plane_test",
+                "content": "一架测试纸飞机",
+                "user_id": "usr_author",
+                "region": "杭州",
+                "created_at": "2026-07-20T00:00:00+00:00",
+                "tags": ["日常"],
+                "scene": "sky",
+                "views": 2,
+            }
+        )
+
+        response = self.client.get("/api/planes/plane_test?user_id=usr_author")
+        body = response.get_json()["data"]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["scene"], "sky")
+        self.assertTrue(body["is_author"])
+
+    def test_plane_publish_generates_developer_reply(self) -> None:
+        with patch.object(plane_api, "generate_developer_reply", return_value="纸飞机的模型回信") as generate:
+            response = self.client.post(
+                "/api/planes",
+                json={"user_id": "usr_author", "content": "把一句晚安交给风。"},
+            )
+
+        body = response.get_json()["data"]
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(body["reply"], "纸飞机的模型回信")
+        generate.assert_called_once_with("海风", "杭州", "把一句晚安交给风。")
+
     def test_bottle_publish_uses_ai_reply_without_moderation_response(self) -> None:
         with patch.object(bottle_api, "generate_developer_reply", return_value="模型生成的回信") as generate:
             response = self.client.post(
