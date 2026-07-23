@@ -155,6 +155,35 @@ class ApiFlowTests(unittest.TestCase):
         self.assertEqual(body["reply"], "纸飞机的模型回信")
         generate.assert_called_once_with("海风", "杭州", "把一句晚安交给风。")
 
+    def test_plane_interactions_are_private_to_author(self) -> None:
+        self.planes.append(
+            {
+                "id": "plane_private",
+                "content": "一条需要被接住的话",
+                "user_id": "usr_author",
+                "region": "杭州",
+                "created_at": "2026-07-20T00:00:00+00:00",
+                "tags": ["日常"],
+                "scene": "window",
+                "views": 1,
+                "reply": "开发组回信",
+            }
+        )
+
+        self.client.post("/api/planes/plane_private/likes", json={"user_id": "usr_reader"})
+        self.client.post(
+            "/api/planes/plane_private/comments",
+            json={"user_id": "usr_reader", "content": "愿这句话顺利抵达。"},
+        )
+        recipient_view = self.client.get("/api/planes/plane_private?user_id=usr_reader").get_json()["data"]
+        author_view = self.client.get("/api/planes/plane_private?user_id=usr_author").get_json()["data"]
+
+        self.assertIsNone(recipient_view["reply"])
+        self.assertNotIn("comments", recipient_view)
+        self.assertTrue(recipient_view["liked"])
+        self.assertEqual(author_view["likes"], 1)
+        self.assertEqual(author_view["comments"][0]["nickname"], "远岸")
+
     def test_bottle_publish_uses_ai_reply_without_moderation_response(self) -> None:
         with patch.object(bottle_api, "generate_developer_reply", return_value="模型生成的回信") as generate:
             response = self.client.post(

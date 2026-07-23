@@ -27,3 +27,19 @@
 `GET /api/planes/:planeId?user_id=usr_8d2e...`
 
 返回纸飞机正文、匿名作者、地区、落点场景、投出时间和停留次数；作者查看自己的纸飞机时额外返回 `is_author: true` 和 `reply`。
+
+接收者可以像漂流瓶一样留下心意或留言：
+
+`POST /api/planes/:planeId/likes`
+
+```json
+{"user_id":"usr_8d2e..."}
+```
+
+`POST /api/planes/:planeId/comments`
+
+```json
+{"user_id":"usr_8d2e...","content":"愿这句话顺利抵达。"}
+```
+
+点赞数量和留言仅作者查看自己的纸飞机时返回；留言包含评论者昵称和 UTC 时间戳，前端展示为“来自 xxx · x 分钟前”。接收者不会看到开发组回信或作者私有统计。
