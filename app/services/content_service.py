@@ -9,7 +9,7 @@ TAG_RULES = {
     "科技": ("ai", "编程", "代码", "科技", "互联网"),
     "青春": ("青春", "朋友", "学校", "夏天", "暗恋"),
     "孤独": ("孤独", "失眠", "难过", "想念", "一个人"),
-    "自然": ("海", "风", "夜", "雨", "森林"),
+    "自然": ("海", "风", "雨", "雪", "森林"),
 }
 
 
@@ -35,10 +35,3 @@ def extract_tags(content: str) -> list[str]:
     lowered = content.lower()
     tags = [tag for tag, terms in TAG_RULES.items() if any(term in lowered for term in terms)]
     return tags or ["日常"]
-
-
-def recommendation_score(candidate: dict, own_tags: set[str]) -> float:
-    candidate_tags = set(candidate.get("tags", []))
-    overlap = len(candidate_tags & own_tags)
-    freshness = 1 / (1 + candidate.get("views", 0) * 0.03)
-    return overlap * 3 + freshness + random.random() * 2

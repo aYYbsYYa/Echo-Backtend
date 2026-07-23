@@ -101,7 +101,7 @@ class ApiFlowTests(unittest.TestCase):
             }
         )
 
-        bottle_response = self.client.get("/api/bottles/discover?user_id=usr_author&mode=random")
+        bottle_response = self.client.get("/api/bottles/discover?user_id=usr_author")
         plane_response = self.client.get("/api/planes/discover?user_id=usr_author")
 
         self.assertIsNone(bottle_response.get_json()["data"])

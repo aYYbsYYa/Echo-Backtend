@@ -1,9 +1,10 @@
+import random
+
 from flask import Blueprint, jsonify, request
 
 from app.services.content_service import (
     extract_tags,
     new_id,
-    recommendation_score,
     utc_now,
     validate_content,
 )
@@ -84,20 +85,10 @@ def publish_bottle():
 @bottle_bp.get("/discover")
 def discover_bottle():
     viewer_id = request.args.get("user_id", "")
-    mode = request.args.get("mode", "random")
     candidates = [item for item in bottles.all() if item["user_id"] != viewer_id]
     if not candidates:
         return jsonify({"data": None, "message": "海面暂时安静，稍后再来。"})
-    if mode == "echo":
-        own_content = " ".join(
-            item["content"] for item in bottles.all() if item["user_id"] == viewer_id
-        )
-        own_tags = set(extract_tags(own_content))
-        item = max(candidates, key=lambda candidate: recommendation_score(candidate, own_tags))
-    else:
-        import random
-
-        item = random.choice(candidates)
+    item = random.choice(candidates)
     records = bottles.all()
     for record in records:
         if record["id"] == item["id"]:
