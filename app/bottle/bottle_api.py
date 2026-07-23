@@ -2,13 +2,12 @@ from flask import Blueprint, jsonify, request
 
 from app.services.content_service import (
     extract_tags,
-    generate_reply,
-    moderate_locally,
     new_id,
     recommendation_score,
     utc_now,
     validate_content,
 )
+from app.services.ai_service import generate_developer_reply
 from app.storage import BottleStorage, UserStorage
 from app.storage.json_repository import JsonRepository
 from app.config import Config
@@ -18,6 +17,21 @@ bottles = BottleStorage()
 users = UserStorage()
 likes = JsonRepository(Config.DATA_DIR / "likes.json")
 comments = JsonRepository(Config.DATA_DIR / "comments.json")
+
+
+def private_comments(bottle_id: str) -> list[dict]:
+    result = []
+    for comment in comments.all():
+        if comment.get("item_id") != bottle_id:
+            continue
+        commenter = users.find(str(comment.get("user_id", ""))) or {}
+        result.append(
+            {
+                **comment,
+                "nickname": comment.get("nickname") or commenter.get("nickname", "匿名旅人"),
+            }
+        )
+    return result
 
 
 def public_bottle(item: dict, viewer_id: str | None = None, include_private: bool = False) -> dict:
@@ -39,9 +53,7 @@ def public_bottle(item: dict, viewer_id: str | None = None, include_private: boo
     }
     if include_private or viewer_id == item["user_id"]:
         response["likes"] = sum(1 for like in likes.all() if like["item_id"] == item["id"])
-        response["comments"] = [
-            comment for comment in comments.all() if comment["item_id"] == item["id"]
-        ]
+        response["comments"] = private_comments(item["id"])
     return response
 
 
@@ -54,21 +66,19 @@ def publish_bottle():
     user = users.find(str(payload.get("user_id", "")))
     if not user:
         return jsonify({"error": {"message": "请先创建匿名身份。"}}), 400
-    review = moderate_locally(payload["content"].strip())
-    if not review["safe"]:
-        return jsonify({"error": {"message": review["reason"], "review": review}}), 422
+    content = payload["content"].strip()
     item = {
-        "id": new_id("bottle", payload["content"]),
-        "content": payload["content"].strip(),
+        "id": new_id("bottle", content),
+        "content": content,
         "user_id": user["id"],
         "region": user["region"],
         "created_at": utc_now(),
-        "tags": extract_tags(payload["content"]),
+        "tags": extract_tags(content),
         "views": 0,
-        "reply": generate_reply(user["nickname"], payload["content"]),
+        "reply": generate_developer_reply(user["nickname"], user["region"], content),
     }
     bottles.append(item)
-    return jsonify({"data": public_bottle(item, user["id"], True), "review": review}), 201
+    return jsonify({"data": public_bottle(item, user["id"], True)}), 201
 
 
 @bottle_bp.get("/discover")
@@ -132,12 +142,14 @@ def create_comment(bottle_id: str):
     item = bottles.find(bottle_id)
     payload = request.get_json(silent=True) or {}
     error = validate_content(payload.get("content"))
-    if not item or error or not users.find(str(payload.get("user_id", ""))):
+    user = users.find(str(payload.get("user_id", "")))
+    if not item or error or not user:
         return jsonify({"error": {"message": error or "无效的漂流瓶或身份。"}}), 400
     comment = {
         "id": new_id("comment", bottle_id),
         "item_id": bottle_id,
-        "user_id": str(payload["user_id"]),
+        "user_id": user["id"],
+        "nickname": user["nickname"],
         "content": payload["content"].strip(),
         "created_at": utc_now(),
     }

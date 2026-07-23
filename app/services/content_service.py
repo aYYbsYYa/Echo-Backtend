@@ -1,10 +1,8 @@
 import hashlib
 import random
-import re
 from datetime import datetime, timezone
 
 
-UNSAFE_TERMS = ("色情", "赌博", "毒品", "代开发票", "加微信", "杀人", "自杀教程")
 TAG_RULES = {
     "学习": ("高考", "考试", "学习", "论文", "作业"),
     "成长": ("未来", "成长", "选择", "毕业", "努力"),
@@ -33,12 +31,6 @@ def validate_content(content: object) -> str | None:
     return None
 
 
-def moderate_locally(content: str) -> dict:
-    lowered = content.lower()
-    term = next((item for item in UNSAFE_TERMS if item.lower() in lowered), None)
-    return {"safe": term is None, "reason": "正常文字" if term is None else f"包含受限内容：{term}"}
-
-
 def extract_tags(content: str) -> list[str]:
     lowered = content.lower()
     tags = [tag for tag, terms in TAG_RULES.items() if any(term in lowered for term in terms)]
@@ -50,9 +42,3 @@ def recommendation_score(candidate: dict, own_tags: set[str]) -> float:
     overlap = len(candidate_tags & own_tags)
     freshness = 1 / (1 + candidate.get("views", 0) * 0.03)
     return overlap * 3 + freshness + random.random() * 2
-
-
-def generate_reply(nickname: str, content: str) -> str:
-    subject = re.sub(r"\s+", " ", content).strip()[:42]
-    opening = f"{nickname}，感谢你把这句话交给世界。"
-    return f"{opening}\n\n“{subject}”已经离开你的手边，愿它遇见一个愿意停下来阅读的人。\n\nYeve（伊芙梦）开发组"

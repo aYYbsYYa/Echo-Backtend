@@ -21,7 +21,7 @@ AI_API_URL=
 AI_MODEL=
 ```
 
-`AI_*` 为预留配置。Demo 当前使用本地审核兜底，因此不配置密钥也可工作。
+`AI_*` 用于生成漂流瓶发布后的开发组回信。`AI_API_URL` 可填写完整的 `/v1/chat/completions` 地址，也可填写 OpenAI-compatible 服务的 host 或 `/v1` base URL。不配置或调用失败时，内容仍会正常发布，但不会生成固定模板回信。
 
 ## 本地开发
 
@@ -46,7 +46,6 @@ docker run --rm -p 3000:3000 -v yeve-echo-data:/app/data yeve-echo-backend
 - `GET /api/bottles/discover` 捞取漂流瓶
 - `POST /api/planes` 扔纸飞机
 - `GET /api/planes/discover` 接住纸飞机
-- `POST /api/ai/moderate` 审核文本
 
 完整请求和返回示例见 `docs/`。
 

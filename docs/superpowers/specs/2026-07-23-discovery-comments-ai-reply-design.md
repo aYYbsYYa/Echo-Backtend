@@ -18,7 +18,7 @@ Paper planes remain without official AI replies or comments.
 Add `app/services/ai_service.py` as the only module that knows the OpenAI-compatible HTTP contract. It will:
 
 - read `AI_API_KEY`, `AI_API_URL`, and `AI_MODEL` from `Config`;
-- normalize `AI_API_URL` so both a full `/chat/completions` endpoint and a base URL ending in `/v1` are supported;
+- normalize `AI_API_URL` so a full `/v1/chat/completions` endpoint, a base URL ending in `/v1`, or a bare OpenAI-compatible host are supported;
 - send `Authorization: Bearer <key>` and JSON content headers;
 - send a standard Chat Completions body with `model` and `messages`;
 - parse `choices[0].message.content` into a trimmed reply;

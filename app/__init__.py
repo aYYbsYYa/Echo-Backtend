@@ -1,6 +1,5 @@
 from flask import Flask
 
-from .ai.ai_api import ai_bp
 from .bottle.bottle_api import bottle_bp
 from .config import Config
 from .plane.plane_api import plane_bp
@@ -15,7 +14,6 @@ def create_app() -> Flask:
     app.register_blueprint(user_bp, url_prefix="/api/users")
     app.register_blueprint(bottle_bp, url_prefix="/api/bottles")
     app.register_blueprint(plane_bp, url_prefix="/api/planes")
-    app.register_blueprint(ai_bp, url_prefix="/api/ai")
 
     @app.after_request
     def add_cors_headers(response):
