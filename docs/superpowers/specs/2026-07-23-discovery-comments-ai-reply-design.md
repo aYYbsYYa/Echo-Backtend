@@ -32,7 +32,7 @@ Bottle publishing remains synchronous for this demo. AI failure must not block p
 
 Remove the `/api/ai/moderate` blueprint and its application registration. Bottle publishing will stop calling `moderate_locally`; both bottle and plane publishing will use the same validation boundary: valid user identity and content length from 1 to 500 characters.
 
-Remove obsolete moderation documentation and README references. Tag extraction may remain as legacy metadata, but discovery no longer uses recommendation scoring.
+Remove obsolete moderation documentation and README references. Remove the obsolete recommendation metadata and scoring code; existing stored tags remain readable as legacy data.
 
 ### Comment representation
 

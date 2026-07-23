@@ -3,7 +3,6 @@ import random
 from flask import Blueprint, jsonify, request
 
 from app.services.content_service import (
-    extract_tags,
     new_id,
     utc_now,
     validate_content,
@@ -74,7 +73,6 @@ def publish_bottle():
         "user_id": user["id"],
         "region": user["region"],
         "created_at": utc_now(),
-        "tags": extract_tags(content),
         "views": 0,
         "reply": generate_developer_reply(user["nickname"], user["region"], content),
     }

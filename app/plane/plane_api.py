@@ -3,7 +3,7 @@ import random
 from flask import Blueprint, jsonify, request
 
 from app.services.ai_service import generate_developer_reply
-from app.services.content_service import extract_tags, new_id, utc_now, validate_content
+from app.services.content_service import new_id, utc_now, validate_content
 from app.storage.json_repository import JsonRepository
 from app.config import Config
 from app.storage import PlaneStorage, UserStorage
@@ -69,7 +69,6 @@ def publish_plane():
         "user_id": user["id"],
         "region": user["region"],
         "created_at": utc_now(),
-        "tags": extract_tags(content),
         "scene": random.choice(SCENES),
         "views": 0,
         "reply": generate_developer_reply(user["nickname"], user["region"], content),
