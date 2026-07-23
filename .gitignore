@@ -2,3 +2,4 @@
 .worktrees/
 .env
 data/*.json
+__pycache__/
