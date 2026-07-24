@@ -20,7 +20,17 @@ class Config:
     SENSE_VOICE_THREADS = max(1, int(os.getenv("SENSE_VOICE_THREADS", "4")))
     UPLOAD_DIR = BASE_DIR / os.getenv("UPLOAD_DIR", "data/uploads")
     MAX_IMAGE_SIZE = int(os.getenv("MAX_IMAGE_SIZE", str(5 * 1024 * 1024)))
-    JSON_FILES = ("users", "bottles", "planes", "comments", "likes", "capsules")
+    JSON_FILES = (
+        "users",
+        "bottles",
+        "planes",
+        "comments",
+        "likes",
+        "capsules",
+        "agent_profiles",
+        "agent_matches",
+        "agent_dialogues",
+    )
 
     @classmethod
     def ensure_data_files(cls) -> None:
