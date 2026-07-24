@@ -27,7 +27,8 @@ UPLOAD_DIR=data/uploads
 MAX_IMAGE_SIZE=5242880
 ```
 
-`AI_*` 用于生成漂流瓶或纸飞机发布后的开发组回信。`AI_API_URL` 可填写完整的
+`AI_*` 用于生成漂流瓶或纸飞机发布后的开发组回信，以及 Soul Echo Demo 的画像、
+Agent 表达和最终回响。`AI_API_URL` 可填写完整的
 `/v1/chat/completions` 地址，也可填写 OpenAI-compatible 服务的 host 或 `/v1`
 base URL。未配置或调用失败时，内容仍可正常发布，但不会生成固定模板回信。
 
@@ -61,6 +62,9 @@ docker run --rm -p 3000:3000 -v yeve-echo-data:/app/data yeve-echo-backend
 - `POST /api/planes` 扔纸飞机
 - `GET /api/planes/discover` 接住纸飞机
 - `POST /api/audio/transcriptions` 将戒指录音转写为文本
+- `GET /api/agent/profile` 获取 Demo Soul Agent 画像
+- `POST /api/agent/match` 计算可解释的 Soul Agent 共鸣排序
+- `POST /api/agent/dialogue` 执行 Agent-to-Agent 灵魂碰撞并生成 Echo
 
 完整请求和响应示例见 `docs/`。
 
@@ -73,5 +77,8 @@ docker run --rm -p 3000:3000 -v yeve-echo-data:/app/data yeve-echo-backend
 - `planes.json`：纸飞机、落点场景、浏览量与开发组回信
 - `likes.json`：用户到内容的点赞关系
 - `comments.json`：评论记录
+- `agent_profiles.json`：Soul Agent 画像缓存
+- `agent_matches.json`：Demo 匹配记录
+- `agent_dialogues.json`：Agent-to-Agent 对话与 Echo 记录
 
 所有文件访问都封装在 `app/storage/`，路由层不直接操作 JSON 文件。

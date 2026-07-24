@@ -50,6 +50,8 @@ class ApiFlowTests(unittest.TestCase):
             bottle_api.likes,
             plane_api.users,
             plane_api.planes,
+            plane_api.comments,
+            plane_api.likes,
         )
         bottle_api.users = self.users
         bottle_api.bottles = self.bottles
@@ -57,6 +59,8 @@ class ApiFlowTests(unittest.TestCase):
         bottle_api.likes = self.likes
         plane_api.users = self.users
         plane_api.planes = self.planes
+        plane_api.comments = self.comments
+        plane_api.likes = self.likes
 
         self.original_upload_dir = Config.UPLOAD_DIR
         Config.UPLOAD_DIR = root / "uploads"
@@ -72,6 +76,8 @@ class ApiFlowTests(unittest.TestCase):
             bottle_api.likes,
             plane_api.users,
             plane_api.planes,
+            plane_api.comments,
+            plane_api.likes,
         ) = self.original_repositories
         Config.UPLOAD_DIR = self.original_upload_dir
         self.temporary_directory.cleanup()

@@ -24,24 +24,15 @@ def _chat_completions_url(raw_url: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, f"{path}/chat/completions", parts.query, parts.fragment))
 
 
-def generate_developer_reply(nickname: str, region: str, content: str) -> str | None:
+def chat_completion(messages: list[dict[str, str]], timeout: int = 20) -> str | None:
+    """Call the configured OpenAI-compatible Chat Completions endpoint."""
     if not Config.AI_API_KEY or not Config.AI_API_URL or not Config.AI_MODEL:
         return None
 
     try:
         payload = {
             "model": Config.AI_MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        f"发布者昵称：{nickname}\n"
-                        f"所在地区：{region}\n"
-                        f"发布内容：{content}"
-                    ),
-                },
-            ],
+            "messages": messages,
         }
         request = Request(
             _chat_completions_url(Config.AI_API_URL),
@@ -52,13 +43,29 @@ def generate_developer_reply(nickname: str, region: str, content: str) -> str | 
             },
             method="POST",
         )
-        with urlopen(request, timeout=20) as response:
+        with urlopen(request, timeout=timeout) as response:
             body = json.loads(response.read().decode("utf-8"))
-        reply = body["choices"][0]["message"]["content"]
+        content = body["choices"][0]["message"]["content"]
     except Exception:
         return None
 
-    if not isinstance(reply, str):
+    if not isinstance(content, str):
         return None
-    reply = reply.strip()
-    return reply or None
+    content = content.strip()
+    return content or None
+
+
+def generate_developer_reply(nickname: str, region: str, content: str) -> str | None:
+    return chat_completion(
+        [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    f"发布者昵称：{nickname}\n"
+                    f"所在地区：{region}\n"
+                    f"发布内容：{content}"
+                ),
+            },
+        ]
+    )
