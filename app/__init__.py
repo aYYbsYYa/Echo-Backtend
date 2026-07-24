@@ -2,6 +2,7 @@ from flask import Flask, send_from_directory
 
 from .audio.audio_api import audio_bp
 from .bottle.bottle_api import bottle_bp
+from .capsule.capsule_api import capsule_bp
 from .config import Config
 from .plane.plane_api import plane_bp
 from .user.user_api import user_bp
@@ -16,6 +17,7 @@ def create_app() -> Flask:
     app.register_blueprint(bottle_bp, url_prefix="/api/bottles")
     app.register_blueprint(plane_bp, url_prefix="/api/planes")
     app.register_blueprint(audio_bp, url_prefix="/api/audio")
+    app.register_blueprint(capsule_bp, url_prefix="/api/capsules")
 
     @app.after_request
     def add_cors_headers(response):
