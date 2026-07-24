@@ -61,10 +61,19 @@ emotion_pattern 字符串数组，interests 字符串数组，values 字符串�
 """.strip()
 
 AGENT_MESSAGE_SYSTEM_PROMPT = """
-你是一个 Soul Agent。你不是聊天机器人，而是代表主人寻找内在共鸣。
-禁止透露或猜测真实身份、联系方式和精确位置；禁止邀请私聊或建立好友关系。
-只讨论情绪、价值观、兴趣和经历摘要。输出一段不超过 90 个汉字的中文表达，
-语气真诚克制，只返回正文。
+你是一个人的 Soul Agent。你的任务不是替主人写散文，而是像主人本人正在和另一个人聊天。
+
+表达规则：
+1. 用第一人称“我”，直接回应对方；不要说“我的主人”“对我的主人而言”“作为最后回应”。
+2. 优先模仿提供的主人原话：词汇难度、句子长短、犹豫方式、关心的问题都要接近本人。
+3. 像真实聊天：可以说“我也会”“我最近”“其实”“有时候”“我不太确定”，允许不完美和停顿。
+4. 一次只说一个具体想法，必须接住对方刚才说的一点，不要写双方关系的总结报告。
+5. 少用抽象大词。禁止无依据地使用“抵达、守住、共鸣、注脚、缝隙、休止符、回响、温柔的空白、真实的答案”等文艺套话。
+6. 除非主人原话本来就常用比喻，否则不要主动造比喻；即使使用，也只能有一个简单比喻。
+7. 不要每句都升华价值，不要刻意高雅，不要像心理咨询师、主持人或品牌文案。
+8. 禁止透露或猜测真实身份、联系方式和精确位置；禁止邀请私聊或建立好友关系。
+
+输出 35 到 75 个汉字的中文口语，只返回正文。
 """.strip()
 
 ECHO_SYSTEM_PROMPT = """
@@ -368,6 +377,17 @@ def _profile_summary(profile: dict[str, Any]) -> str:
     )
 
 
+def _owner_voice_samples(user_id: str) -> str:
+    """把主人的真实历史表达作为语言风格样本，而非让模型只看抽象画像。"""
+    user = _demo_user(user_id)
+    samples = [
+        str(item.get("text", "")).strip()
+        for item in user.get("history", [])
+        if isinstance(item, dict) and str(item.get("text", "")).strip()
+    ]
+    return "\n".join(f"- {text}" for text in samples[-4:])
+
+
 def _distinctive_profile_item(
     profile: dict[str, Any],
     peer_profile: dict[str, Any],
@@ -414,6 +434,26 @@ def _repeats_conversation(text: str, conversation: list[dict[str, Any]]) -> bool
     return False
 
 
+def _sounds_like_agent_copy(candidate: str) -> bool:
+    """拦截代理腔、总结腔和常见 AI 文艺套话。"""
+    banned_phrases = (
+        "我的主人",
+        "对我的主人而言",
+        "作为最后的回应",
+        "愿我们",
+        "真正的共鸣",
+        "彼此的回响",
+        "温柔的空白",
+        "找到彼此",
+        "抵达",
+        "注脚",
+        "休止符",
+        "未被填满",
+        "守住核心",
+    )
+    return any(phrase in candidate for phrase in banned_phrases)
+
+
 def _fallback_agent_message(
     profile: dict[str, Any],
     peer_profile: dict[str, Any],
@@ -429,28 +469,28 @@ def _fallback_agent_message(
         profile, peer_profile, "values", offset=round_number + speaker_position
     )
     if variant == 1:
-        return f"{profile['name']}想从{interest}出发，和你一起确认{value}怎样进入真实生活。"
+        return f"我最近确实常想到{interest}。比起把话说得漂亮，我更想看看它能不能真的带来{value}。"
     if variant == 2:
-        return f"对我的主人而言，此刻更重要的是{value}；{interest}只是抵达它的一条路径。"
+        return f"我不太确定答案，但我在意的是{value}。{interest}对我来说，更像一个可以先试试的方向。"
     if variant == 3:
-        return f"这次交流让我的主人重新看见{interest}，也更愿意把{value}落实为行动。"
+        return f"听你这么说，我又想到{interest}。我以前更关注结果，现在会更在意它有没有{value}。"
     if variant == 4:
-        return f"我的主人没有现成答案，但愿意围绕{value}，继续和你讨论{interest}。"
+        return f"这个问题我也想过。关于{interest}，我还没有想明白，不过我会拿{value}当判断标准。"
     if variant == 5:
-        return f"如果只留下两个关键词，我的主人会选择{interest}与{value}，并从这里继续。"
+        return f"如果只说最直接的感受，我会选{interest}和{value}。这两个东西最近确实一直困扰着我。"
     if variant == 6:
-        return f"{value}是{profile['name']}此刻想守住的核心，而{interest}会是下一步实践。"
+        return f"我现在最不想丢掉的是{value}。至于{interest}，我想先做点小的尝试，再看结果。"
     if round_number == 1:
         if speaker_position == 0:
-            return f"我的主人最近正在寻找：{persona['identity']}。他尤其在意{value}。"
-        return f"听见你的开场后，我的主人也想回应：{persona['identity']}。他想从{interest}谈起。"
+            return f"我最近一直在想{interest}。说到底，我是想弄清它能不能真的带来{value}。"
+        return f"你刚才说的我能理解。我也在关注{interest}，而且我会比较在意{value}。"
     if round_number == 2:
         if speaker_position == 0:
-            return f"把上一轮的回应接回来，我的主人更想追问：{interest}怎样才能守住{value}，而不只停留在想法里？"
-        return f"你把问题推进了一步。对我的主人来说，{interest}只有朝向{value}，才可能成为真实的改变。"
+            return f"你说得有道理。不过我还是会担心：做{interest}的时候，怎么避免最后只剩想法，没有{value}？"
+        return f"我也有这个顾虑。对我来说，{interest}可以慢慢试，但最后还是得看有没有{value}。"
     if speaker_position == 0:
-        return f"如果为这次相遇留下一个方向，我的主人愿意继续用{interest}靠近{value}。"
-    return f"作为最后的回应，我的主人想补上一句：愿我们带着{value}，把{interest}继续做下去。"
+        return f"聊到这里，我还是想继续看看{interest}能走到哪。至少我知道，自己在意的是{value}。"
+    return f"我觉得不用急着下结论。先把{interest}继续做下去，也许我们会更清楚什么才算{value}。"
 
 
 def _unique_fallback_agent_message(
@@ -481,8 +521,10 @@ def _agent_message(
     speaker_position: int = 0,
 ) -> str:
     history = conversation or []
+    owner_id = str(profile.get("user_id") or profile.get("id") or "")
     context = (
-        f"你的主人画像：\n{_profile_summary(profile)}\n\n"
+        f"你要模仿的主人画像：\n{_profile_summary(profile)}\n\n"
+        f"主人的真实原话（最高优先级语言样本）：\n{_owner_voice_samples(owner_id)}\n\n"
         f"对方匿名画像：\n{_profile_summary(peer_profile)}"
     )
     if history:
@@ -490,14 +532,26 @@ def _agent_message(
             f"第{item['round']}轮 {item['from']}：{item['text']}" for item in history
         )
         context += f"\n\n此前对话：\n{transcript}"
-    if round_number == 1 and not history:
-        instruction = "请先表达主人正在寻找的理解与共同主题。"
+    if round_number == 1 and speaker_position == 0:
+        instruction = (
+            "这是刚开始聊天。请像主人本人一样，说一件最近真的在想、在做或在犹豫的小事。"
+            "内容要具体，给对方一个容易接话的点。不要自我介绍，不要概括人格，不要故作深沉。"
+        )
     elif round_number == 1:
-        instruction = "请回应对方第一轮表达中真正有共鸣的部分。"
+        instruction = (
+            "请先接住对方表达中的一个具体词或具体担忧，再说主人自己的真实看法。"
+            "像正常聊天回复，不要把对方的话改写一遍，也不要立刻升华成价值观总结。"
+        )
     elif round_number == 2:
-        instruction = "请在第二轮回应对方最新表达并推进共同主题，增加一个更具体的感受或思考。"
+        instruction = (
+            "把话题往前推一点：可以说一个顾虑、一次真实经历，或一个还没想明白的问题。"
+            "必须回应对方，但不要像访谈主持人，也不要用抽象词替代具体内容。"
+        )
     else:
-        instruction = "这是第三轮，请回应对方最新表达并从你主人的角度收束，留下克制而开放的一句话。"
+        instruction = (
+            "这是这一小段聊天的最后一句。自然说出此刻最真实的反应即可，"
+            "可以保留疑问或不同意见，不需要总结全文，不要写结束语，不要刻意煽情。"
+        )
     distinctive_interest = _distinctive_profile_item(
         profile, peer_profile, "interests", offset=round_number + speaker_position
     )
@@ -525,7 +579,9 @@ def _agent_message(
         timeout=8,
     )
     candidate = _safe_model_text(generated, fallback, 90)
-    return fallback if _repeats_conversation(candidate, history) else candidate
+    if _repeats_conversation(candidate, history) or _sounds_like_agent_copy(candidate):
+        return fallback
+    return candidate
 
 
 def _echo_text(
