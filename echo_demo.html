@@ -206,7 +206,36 @@
         .profile-content {
             color: #5C635D;
             line-height: 1.8;
-            white-space: pre-line;
+        }
+
+        .profile-item {
+            margin-bottom: 1rem;
+        }
+
+        .profile-label {
+            font-weight: 500;
+            color: #1F2421;
+            margin-bottom: 0.3rem;
+        }
+
+        .profile-value {
+            color: #5C635D;
+            line-height: 1.6;
+        }
+
+        .profile-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.3rem;
+        }
+
+        .profile-tag {
+            background: #F2E3D6;
+            color: #C4612F;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.875rem;
         }
 
         .loading {
@@ -278,7 +307,12 @@
 
     <script>
         const API_BASE = 'http://localhost:3000/api/echo';
-        const USER_ID = 'demo_user_' + Date.now();
+        // 使用localStorage保持用户ID，避免刷新后丢失
+        let USER_ID = localStorage.getItem('echo_user_id');
+        if (!USER_ID) {
+            USER_ID = 'demo_user_' + Date.now();
+            localStorage.setItem('echo_user_id', USER_ID);
+        }
         let conversationId = null;
         let currentMode = 'listen';
 
@@ -330,8 +364,8 @@
                 // 显示AI回复
                 addMessage(aiReply, 'assistant', currentMode);
                 
-                // 更新人格画像
-                updateProfile();
+                // 每次发送消息后都更新人格画像（后端会判断是否足够生成）
+                await updateProfile();
                 
             } catch (error) {
                 showError('发送失败：' + error.message);
@@ -403,16 +437,80 @@
                 const response = await fetch(`${API_BASE}/users/${USER_ID}/profile`);
                 const data = await response.json();
                 
+                console.log('画像API返回:', JSON.stringify(data, null, 2)); // 详细调试日志
+                
                 const profileContent = document.getElementById('profileContent');
                 
-                if (data.data.status === 'insufficient_data') {
-                    profileContent.textContent = data.data.summary;
-                } else if (data.data.profile_data) {
-                    const profile = data.data.profile_data;
-                    profileContent.textContent = 
-                        `消息数量: ${profile.message_count}\n` +
-                        `总字数: ${profile.total_words}\n\n` +
-                        `人格特征:\n${profile.traits}`;
+                // 修复：处理两种可能的数据结构
+                const profileData = data.data || data;
+                
+                if (profileData.status === 'insufficient_data') {
+                    profileContent.innerHTML = `
+                        <div style="text-align: center; color: #5C635D; padding: 1rem;">
+                            ${profileData.summary}
+                        </div>
+                    `;
+                } else if (profileData.profile_data) {
+                    const profile = profileData.profile_data;
+                    
+                    // 安全检查：确保数据结构完整
+                    if (!profile.persona || !profile.communication_style) {
+                        console.error('画像数据结构不完整:', profile);
+                        profileContent.innerHTML = `
+                            <div style="text-align: center; color: #5C635D; padding: 1rem;">
+                                画像数据格式异常，请稍后再试...
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    const persona = profile.persona;
+                    const style = profile.communication_style;
+                    
+                    // 生成结构化展示
+                    profileContent.innerHTML = `
+                        <div class="profile-item">
+                            <div class="profile-label">💫 内在定位</div>
+                            <div class="profile-value">${persona.identity || '探索中...'}</div>
+                        </div>
+                        
+                        <div class="profile-item">
+                            <div class="profile-label">✨ 人格特质</div>
+                            <div class="profile-tags">
+                                ${(persona.traits || []).map(t => `<span class="profile-tag">${t}</span>`).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="profile-item">
+                            <div class="profile-label">🌊 情绪模式</div>
+                            <div class="profile-tags">
+                                ${(persona.emotion_pattern || []).map(e => `<span class="profile-tag">${e}</span>`).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="profile-item">
+                            <div class="profile-label">🎯 关注领域</div>
+                            <div class="profile-tags">
+                                ${(persona.interests || []).map(i => `<span class="profile-tag">${i}</span>`).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="profile-item">
+                            <div class="profile-label">💎 核心价值</div>
+                            <div class="profile-tags">
+                                ${(persona.values || []).map(v => `<span class="profile-tag">${v}</span>`).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="profile-item">
+                            <div class="profile-label">🗣️ 表达风格</div>
+                            <div class="profile-value">${style.tone || '自然平和'}</div>
+                        </div>
+                        
+                        <div style="text-align: center; margin-top: 1.5rem; color: #5C635D; font-size: 0.875rem;">
+                            基于 ${profileData.message_count || 0} 条对话生成
+                        </div>
+                    `;
                 }
             } catch (error) {
                 console.error('更新人格画像失败:', error);

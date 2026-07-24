@@ -151,23 +151,33 @@ def switch_mode(conversation_id: str):
 @echo_bp.get("/users/<user_id>/profile")
 def get_user_profile(user_id: str):
     """获取用户人格画像"""
-    profile = storage.get_profile(user_id)
-    
-    if not profile:
-        # 如果没有画像，尝试生成
-        user_messages = storage.get_user_all_messages(user_id)
-        user_msg_list = [
-            {"role": msg["role"], "content": msg["content"]}
-            for msg in user_messages
-        ]
-        profile_data = generate_profile_summary(user_msg_list)
+    try:
+        profile = storage.get_profile(user_id)
         
-        if profile_data and profile_data.get("status") == "available":
-            profile = storage.save_profile(user_id, profile_data)
-        else:
-            return jsonify({"data": profile_data})
-    
-    return jsonify({"data": profile})
+        if not profile:
+            # 如果没有画像，尝试生成
+            user_messages = storage.get_user_all_messages(user_id)
+            user_msg_list = [
+                {"role": msg["role"], "content": msg["content"]}
+                for msg in user_messages
+            ]
+            profile_data = generate_profile_summary(user_msg_list)
+            
+            if profile_data and profile_data.get("status") == "available":
+                # 直接保存并返回，不要双重嵌套
+                storage.save_profile(user_id, profile_data)
+                return jsonify({"data": profile_data})
+            else:
+                # status为insufficient_data时也直接返回
+                return jsonify({"data": profile_data})
+        
+        # 如果已有profile，直接返回其中的profile_data
+        return jsonify({"data": profile.get("profile_data", profile)})
+    except Exception as e:
+        log(f"[ERROR] 获取画像失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"获取画像失败: {str(e)}"}), 500
 
 
 @echo_bp.post("/users/<user_id>/profile/refresh")

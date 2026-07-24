@@ -34,6 +34,12 @@ def create_app() -> Flask:
     def uploaded_image(filename: str):
         return send_from_directory(Config.UPLOAD_DIR, filename)
 
+    @app.get("/echo_demo.html")
+    def echo_demo():
+        import os
+        demo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "echo_demo.html")
+        return send_from_directory(os.path.dirname(demo_path), "echo_demo.html")
+
     @app.get("/api/health")
     def health():
         return {"data": {"status": "ok"}}

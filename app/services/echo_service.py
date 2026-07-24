@@ -1,4 +1,5 @@
 import json
+import re
 from urllib.parse import urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 import logging
@@ -73,7 +74,11 @@ LISTEN_MODE_PROMPT = """
 - ❌ 过早给出解决方案
 - ❌ 否定或评判用户感受
 - ❌ 每次都急于提问和引导
-- ❌ 使用动作描述，如"(轻轻点头)"、"(沉默)"、"(微笑)"等括号内容
+- ❌ 使用任何动作描述，包括但不限于：
+  * 括号内的动作："(轻轻点头)"、"(沉默)"、"(微笑)"、"(轻声)"、"(停顿)"
+  * 中文括号内的动作："（轻轻点头）"、"（沉默）"、"（微笑）"、"（轻声回答）"
+  * 任何形式的舞台提示或动作标注
+- ❌ 在回复前添加修饰语，如"轻轻地说："、"温柔地："、"缓缓地："
 
 示例对话：
 用户："我最近很焦虑，工作压力好大，每天都睡不好，感觉快撑不住了..."
@@ -290,12 +295,17 @@ def generate_echo_reply(
         logger.error(f"回复为空字符串！")
         return None
     
+    # 清理可能的动作描述（中英文括号）
+    reply = re.sub(r'[（(][^）)]*[）)]', '', reply).strip()
+    # 清理修饰语前缀
+    reply = re.sub(r'^(轻轻地说|温柔地|缓缓地|轻声地|静静地)[：:]\s*', '', reply).strip()
+    
     return reply
 
 
 def generate_profile_summary(user_messages: list[dict]) -> dict | None:
     """
-    生成用户人格画像摘要
+    生成用户人格画像摘要（结构化JSON版本，对标Agent to Agent）
     
     Args:
         user_messages: 用户所有历史消息
@@ -303,23 +313,179 @@ def generate_profile_summary(user_messages: list[dict]) -> dict | None:
     Returns:
         人格画像数据字典
     """
-    if not user_messages or len(user_messages) < 5:
+    # 先提取用户消息（只统计user role的消息）
+    user_contents = [msg["content"] for msg in user_messages if msg.get("role") == "user"]
+    
+    # 判断用户消息数量是否足够
+    if len(user_contents) < 5:
         return {
             "status": "insufficient_data",
-            "message_count": len(user_messages) if user_messages else 0,
-            "summary": "对话量较少，暂无法生成完整的人格画像"
+            "message_count": len(user_contents),
+            "summary": "对话量较少，暂无法生成完整的人格画像（至少需要5条消息）"
         }
     
-    # 构建基本统计
-    user_contents = [msg["content"] for msg in user_messages if msg["role"] == "user"]
-    all_text = " ".join(user_contents)
+    # 如果没有AI配置，直接使用fallback
+    if not Config.AI_API_KEY or not Config.AI_API_URL or not Config.AI_MODEL:
+        logger.warning("[画像生成] AI配置缺失，使用fallback方案")
+        return _fallback_profile_summary(user_contents)
     
-    profile = {
+    expressions = "\n".join([f"- {content}" for content in user_contents])
+    
+    # 构建AI提示词
+    system_prompt = """
+你是灵笺的人格画像分析器。根据用户的对话内容，生成温和、克制的内在画像。
+只返回一个JSON对象，不要返回Markdown代码块。
+
+返回格式：
+{
+  "identity": "用户的内在定位（一句话，50字以内）",
+  "traits": ["特质1", "特质2", "特质3"],
+  "emotion_pattern": ["情绪模式1", "情绪模式2"],
+  "interests": ["关注点1", "关注点2", "关注点3"],
+  "values": ["价值观1", "价值观2"],
+  "tone": "表达风格（20字以内）"
+}
+
+要求：
+- 每个数组保留2-4项，措辞温和简短
+- 不要推断真实身份、年龄、联系方式等敏感信息
+- 只分析情绪、价值观、兴趣和表达风格
+""".strip()
+    
+    user_prompt = f"用户的对话表达：\n{expressions}"
+    
+    try:
+        # 调用AI生成画像
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        payload = {
+            "model": Config.AI_MODEL,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 500,
+        }
+        
+        request = Request(
+            _chat_completions_url(Config.AI_API_URL),
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {Config.AI_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        
+        logger.debug(f"[画像生成] 开始生成，消息数: {len(user_contents)}")
+        
+        with urlopen(request, timeout=30) as response:
+            body = json.loads(response.read().decode("utf-8"))
+        
+        ai_response = body["choices"][0]["message"]["content"].strip()
+        logger.debug(f"[画像生成] AI返回: {ai_response}")
+        
+        # 解析JSON
+        profile_json = _parse_json_from_response(ai_response)
+        
+        if not profile_json:
+            logger.error("[画像生成] JSON解析失败，使用fallback")
+            return _fallback_profile_summary(user_contents)
+        
+        # 返回结构化画像
+        return {
+            "status": "available",
+            "message_count": len(user_contents),
+            "profile_data": {
+                "persona": {
+                    "identity": profile_json.get("identity", "一个正在探索自我的人"),
+                    "traits": profile_json.get("traits", ["善于思考"]),
+                    "emotion_pattern": profile_json.get("emotion_pattern", ["情绪稳定"]),
+                    "interests": profile_json.get("interests", ["生活"]),
+                    "values": profile_json.get("values", ["真诚"])
+                },
+                "communication_style": {
+                    "tone": profile_json.get("tone", "平和自然")
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"[画像生成] 生成失败: {e}", exc_info=True)
+        return _fallback_profile_summary(user_contents)
+
+
+def _parse_json_from_response(text: str) -> dict | None:
+    """从AI响应中解析JSON"""
+    if not text:
+        return None
+    
+    # 去除markdown代码块
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+    
+    # 提取JSON对象
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    
+    try:
+        return json.loads(cleaned[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+
+
+def _fallback_profile_summary(user_contents: list[str]) -> dict:
+    """降级方案：简单的关键词匹配生成画像"""
+    all_text = " ".join(user_contents)
+    avg_length = sum(len(c) for c in user_contents) / len(user_contents) if user_contents else 0
+    
+    # 简单特征分析
+    traits = []
+    if avg_length > 100:
+        traits.append("表达详细")
+    elif avg_length > 50:
+        traits.append("表达适中")
+    else:
+        traits.append("言简意赅")
+    
+    emotion_pattern = []
+    if any(word in all_text for word in ["焦虑", "担心", "害怕"]):
+        emotion_pattern.append("偶尔焦虑")
+    if any(word in all_text for word in ["开心", "高兴", "快乐"]):
+        emotion_pattern.append("积极乐观")
+    if not emotion_pattern:
+        emotion_pattern.append("情绪平和")
+    
+    interests = []
+    if any(word in all_text for word in ["工作", "职场"]):
+        interests.append("工作")
+    if any(word in all_text for word in ["生活", "日常"]):
+        interests.append("生活")
+    if not interests:
+        interests.append("自我成长")
+    
+    return {
         "status": "available",
         "message_count": len(user_contents),
-        "total_words": len(all_text),
-        "traits": build_personality_traits(user_messages),
-        "generated_at": None  # 时间戳由调用方添加
+        "profile_data": {
+            "persona": {
+                "identity": "一个正在寻找方向的探索者",
+                "traits": traits[:3],
+                "emotion_pattern": emotion_pattern[:2],
+                "interests": interests[:3],
+                "values": ["真诚", "成长"]
+            },
+            "communication_style": {
+                "tone": "平和自然"
+            }
+        }
     }
-    
-    return profile
