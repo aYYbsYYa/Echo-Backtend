@@ -16,22 +16,46 @@ class JsonRepository:
             self.path.write_text("[]\n", encoding="utf-8")
         self.lock = self._locks.setdefault(path, Lock())
 
+    def _read_unlocked(self) -> list[dict[str, Any]]:
+        return json.loads(self.path.read_text(encoding="utf-8"))
+
+    def _write_unlocked(self, records: list[dict[str, Any]]) -> None:
+        temporary = self.path.with_suffix(f"{self.path.suffix}.tmp")
+        temporary.write_text(
+            json.dumps(records, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        temporary.replace(self.path)
+
     def all(self) -> list[dict[str, Any]]:
         with self.lock:
-            return json.loads(self.path.read_text(encoding="utf-8"))
+            return self._read_unlocked()
 
     def replace_all(self, records: list[dict[str, Any]]) -> None:
         with self.lock:
-            temporary = self.path.with_suffix(".tmp")
-            temporary.write_text(
-                json.dumps(records, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-            )
-            temporary.replace(self.path)
+            self._write_unlocked(records)
 
-    def append(self, record: dict[str, Any]) -> dict[str, Any]:
-        records = self.all()
-        records.append(record)
-        self.replace_all(records)
+    def append(
+        self, record: dict[str, Any], max_records: int | None = None
+    ) -> dict[str, Any]:
+        with self.lock:
+            records = self._read_unlocked()
+            records.append(record)
+            if max_records is not None and max_records > 0:
+                records = records[-max_records:]
+            self._write_unlocked(records)
+        return record
+
+    def upsert(self, record: dict[str, Any], key: str = "id") -> dict[str, Any]:
+        with self.lock:
+            records = self._read_unlocked()
+            value = record.get(key)
+            for index, existing in enumerate(records):
+                if existing.get(key) == value:
+                    records[index] = record
+                    break
+            else:
+                records.append(record)
+            self._write_unlocked(records)
         return record
 
     def find(self, record_id: str) -> dict[str, Any] | None:

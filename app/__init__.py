@@ -1,5 +1,6 @@
 from flask import Flask, send_from_directory
 
+from .agent.agent_api import agent_bp
 from .audio.audio_api import audio_bp
 from .bottle.bottle_api import bottle_bp
 from .capsule.capsule_api import capsule_bp
@@ -19,6 +20,7 @@ def create_app() -> Flask:
     app.register_blueprint(plane_bp, url_prefix="/api/planes")
     app.register_blueprint(audio_bp, url_prefix="/api/audio")
     app.register_blueprint(capsule_bp, url_prefix="/api/capsules")
+    app.register_blueprint(agent_bp, url_prefix="/api/agent")
     app.register_blueprint(echo_bp, url_prefix="/api/echo")
 
     @app.after_request
