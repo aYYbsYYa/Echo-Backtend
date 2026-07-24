@@ -2,6 +2,7 @@
 .worktrees/
 .env
 data/*.json
+data/capsule_images/
 data/uploads/
 __pycache__/
 models/
