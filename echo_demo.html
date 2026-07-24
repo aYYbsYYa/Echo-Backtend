@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>灵笺 Yeve Echo - 与自己对话</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #F7F4EF;
+            color: #1F2421;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem 0;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 em {
+            font-style: italic;
+            color: #C4612F;
+        }
+
+        .subtitle {
+            color: #5C635D;
+            font-size: 1rem;
+            font-weight: 300;
+        }
+
+        .mode-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .mode-btn {
+            padding: 0.75rem 2rem;
+            border: 2px solid #E7E1D7;
+            background: #FFFFFF;
+            color: #5C635D;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .mode-btn.active {
+            background: #C4612F;
+            color: #FFFFFF;
+            border-color: #C4612F;
+        }
+
+        .mode-indicator {
+            text-align: center;
+            margin: 1rem 0;
+            padding: 0.5rem;
+            background: #F2E3D6;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            color: #C4612F;
+        }
+
+        .chat-container {
+            background: #FFFFFF;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            min-height: 500px;
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #E7E1D7;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .message {
+            margin-bottom: 1.5rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-user {
+            text-align: right;
+        }
+
+        .message-content {
+            display: inline-block;
+            padding: 1rem 1.5rem;
+            border-radius: 18px;
+            max-width: 70%;
+        }
+
+        .message-user .message-content {
+            background: #F7F4EF;
+            color: #1F2421;
+        }
+
+        .message-assistant .message-content {
+            background: #FBF9F5;
+            border: 1px solid #E7E1D7;
+            color: #1F2421;
+        }
+
+        .message-assistant.mirror .message-content {
+            background: linear-gradient(135deg, #FBF9F5 0%, #F2E3D6 100%);
+            border: 1px solid #C4612F;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .input-box {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            border: 2px solid #E7E1D7;
+            border-radius: 999px;
+            font-size: 1rem;
+            font-family: inherit;
+            background: #FFFFFF;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-box:focus {
+            outline: none;
+            border-color: #C4612F;
+        }
+
+        .send-btn {
+            padding: 1rem 2rem;
+            background: #C4612F;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: #A94E22;
+            transform: translateY(-2px);
+        }
+
+        .send-btn:disabled {
+            background: #E7E1D7;
+            cursor: not-allowed;
+        }
+
+        .profile-section {
+            background: #FBF9F5;
+            border: 1px solid #E7E1D7;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .profile-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #C4612F;
+        }
+
+        .profile-content {
+            color: #5C635D;
+            line-height: 1.8;
+            white-space: pre-line;
+        }
+
+        .loading {
+            text-align: center;
+            color: #5C635D;
+            padding: 1rem;
+        }
+
+        .error {
+            background: #ffe6e6;
+            color: #cc0000;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .welcome-message {
+            text-align: center;
+            color: #5C635D;
+            padding: 2rem;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>灵笺 <em>Yeve Echo</em></h1>
+            <p class="subtitle">我是你的灵笺，愿意倾听你的心事。慢慢地，我会学着像你一样思考。</p>
+        </header>
+
+        <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="listen" onclick="switchMode('listen')">
+                💬 倾听模式
+            </button>
+            <button class="mode-btn" data-mode="mirror" onclick="switchMode('mirror')">
+                🪞 镜像模式
+            </button>
+        </div>
+
+        <div class="mode-indicator" id="modeIndicator">
+            当前模式：倾听模式 - 我在这里陪伴你，倾听你的心声
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="welcome-message">
+                请开始和我对话吧...
+            </div>
+        </div>
+
+        <div class="input-area">
+            <input 
+                type="text" 
+                class="input-box" 
+                id="messageInput" 
+                placeholder="输入你的心事..."
+                onkeypress="handleKeyPress(event)"
+            />
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()">发送</button>
+        </div>
+
+        <div class="profile-section">
+            <div class="profile-title">你的人格画像</div>
+            <div class="profile-content" id="profileContent">
+                对话达到一定数量后，我会为你生成专属的人格画像...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api/echo';
+        const USER_ID = 'demo_user_' + Date.now();
+        let conversationId = null;
+        let currentMode = 'listen';
+
+        // 初始化：创建对话
+        async function initConversation() {
+            try {
+                const response = await fetch(`${API_BASE}/conversations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: USER_ID, mode: 'listen' })
+                });
+                const data = await response.json();
+                conversationId = data.data.id;
+                console.log('对话创建成功:', conversationId);
+            } catch (error) {
+                showError('无法连接到服务器，请确保后端服务已启动');
+                console.error(error);
+            }
+        }
+
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            if (!conversationId) {
+                showError('对话未初始化');
+                return;
+            }
+
+            // 显示用户消息
+            addMessage(message, 'user');
+            input.value = '';
+            
+            // 不禁用输入框，允许用户连续发送多条消息
+            // AI会在后台异步回复
+
+            try {
+                const response = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: message })
+                });
+                
+                const data = await response.json();
+                const aiReply = data.data.assistant_message.content;
+                
+                // 显示AI回复
+                addMessage(aiReply, 'assistant', currentMode);
+                
+                // 更新人格画像
+                updateProfile();
+                
+            } catch (error) {
+                showError('发送失败：' + error.message);
+            }
+            
+            // 保持输入框焦点，方便用户继续输入
+            input.focus();
+        }
+
+        // 添加消息到界面
+        function addMessage(content, role, mode = null) {
+            const chatContainer = document.getElementById('chatContainer');
+            const welcome = chatContainer.querySelector('.welcome-message');
+            if (welcome) welcome.remove();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message message-${role}`;
+            if (role === 'assistant' && mode === 'mirror') {
+                messageDiv.classList.add('mirror');
+            }
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv);
+            
+            // 滚动到底部
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // 切换模式
+        async function switchMode(mode) {
+            if (!conversationId) {
+                showError('对话未初始化');
+                return;
+            }
+
+            try {
+                await fetch(`${API_BASE}/conversations/${conversationId}/mode`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode })
+                });
+                
+                currentMode = mode;
+                
+                // 更新UI
+                document.querySelectorAll('.mode-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.mode === mode);
+                });
+                
+                const indicator = document.getElementById('modeIndicator');
+                if (mode === 'listen') {
+                    indicator.textContent = '当前模式：倾听模式 - 我在这里陪伴你，倾听你的心声';
+                } else {
+                    indicator.textContent = '当前模式：镜像模式 - 现在，你在和另一个自己对话';
+                }
+                
+            } catch (error) {
+                showError('模式切换失败：' + error.message);
+            }
+        }
+
+        // 更新人格画像
+        async function updateProfile() {
+            try {
+                const response = await fetch(`${API_BASE}/users/${USER_ID}/profile`);
+                const data = await response.json();
+                
+                const profileContent = document.getElementById('profileContent');
+                
+                if (data.data.status === 'insufficient_data') {
+                    profileContent.textContent = data.data.summary;
+                } else if (data.data.profile_data) {
+                    const profile = data.data.profile_data;
+                    profileContent.textContent = 
+                        `消息数量: ${profile.message_count}\n` +
+                        `总字数: ${profile.total_words}\n\n` +
+                        `人格特征:\n${profile.traits}`;
+                }
+            } catch (error) {
+                console.error('更新人格画像失败:', error);
+            }
+        }
+
+        // 处理回车键
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // 显示错误
+        function showError(message) {
+            const chatContainer = document.getElementById('chatContainer');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            chatContainer.appendChild(errorDiv);
+            
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', initConversation);
+    </script>
+</body>
+</html>
