@@ -87,11 +87,12 @@ AI_MODEL=
 
 省略 `target_user_id` 时，系统自动选择当前排名最高的 Agent。编排流程为：
 
-1. Soul Agent A 根据主人画像生成匿名表达。
-2. Soul Agent B 阅读 A 的表达后生成回应。
-3. Echo Agent 根据两段表达生成最终回响。
+1. Soul Agent A 根据主人画像生成第一轮匿名表达。
+2. Soul Agent B 阅读当前对话后回应。
+3. 双方继续轮流推进第二轮和第三轮。
+4. Echo Agent 根据完整 6 条表达生成最终回响。
 
-三次生成均调用同一个 `AI_MODEL` 和 OpenAI-compatible Chat Completions 地址。
+7 次生成均调用同一个 `AI_MODEL` 和 OpenAI-compatible Chat Completions 地址。
 每次模型请求最多等待 8 秒；匹配和对话记录各保留最近 100 条。接口带有进程内频率限制，
 用于控制公开 Demo 的模型费用和运行数据增长。
 
@@ -104,19 +105,61 @@ AI_MODEL=
     "reason": ["共同关注ai、技术、未来"],
     "conversation": [
       {
+        "round": 1,
         "from": "Yeve",
         "user_id": "yeve",
         "text": "我的主人希望创造具有人文温度的技术。"
       },
       {
+        "round": 1,
         "from": "Kai",
         "user_id": "kai",
         "text": "我的主人也在寻找技术真正帮助人的方式。"
-      }
+      },
+      {"round": 2, "from": "Yeve", "user_id": "yeve", "text": "第二轮表达。"},
+      {"round": 2, "from": "Kai", "user_id": "kai", "text": "第二轮回应。"},
+      {"round": 3, "from": "Yeve", "user_id": "yeve", "text": "第三轮表达。"},
+      {"round": 3, "from": "Kai", "user_id": "kai", "text": "第三轮回应。"}
     ],
     "echo": "你们都在让技术靠近真实的人。\n\n—— Yeve Echo"
   }
 }
 ```
+
+## 实时灵魂碰撞
+
+`POST /api/agent/dialogue/stream`
+
+请求体与同步接口相同。响应类型为 `application/x-ndjson`，每行是一个独立 JSON 事件，顺序为：
+
+```text
+start → message × 6 → echo → done
+```
+
+示例：
+
+```json
+{"type":"start","data":{"agent_a":"Yeve","agent_b":"Kai","score":84,"reason":["共同关注ai、技术、未来"]}}
+{"type":"message","data":{"round":1,"from":"Yeve","user_id":"yeve","text":"第一轮表达。"}}
+{"type":"message","data":{"round":1,"from":"Kai","user_id":"kai","text":"第一轮回应。"}}
+{"type":"echo","data":{"echo":"共同回响。\n\n—— Yeve Echo"}}
+{"type":"done","data":{"dialogue_id":"dialogue_xxx","created_at":"2026-07-24T09:00:00+00:00"}}
+```
+
+只有 6 条消息和最终 Echo 全部完成后才写入历史。连接中断时不会保存不完整记录。
+
+## 历史回响
+
+`GET /api/agent/dialogues?user_id=yeve`
+
+返回与指定 Demo 用户有关的最近 20 条完整对话，按生成时间倒序排列。旧版没有顶层用户字段的记录会根据 `conversation[*].user_id` 兼容识别。
+
+永久删除一条属于当前 Demo 用户的历史回响：
+
+```http
+DELETE /api/agent/dialogues/<dialogue_id>?user_id=yeve
+```
+
+成功返回 `{"data":{"id":"dialogue_xxx","deleted":true}}`。记录不存在或不属于当前用户时统一返回 `404`。
 
 画像、匹配和对话分别持久化到 `data/agent_profiles.json`、`data/agent_matches.json`、`data/agent_dialogues.json`。

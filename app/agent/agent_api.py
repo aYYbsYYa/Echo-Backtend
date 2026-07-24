@@ -1,14 +1,18 @@
+import json
 from collections import defaultdict, deque
 from threading import Lock
 from time import monotonic
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, request, stream_with_context
 
 from app.services.agent_service import (
     AgentDemoError,
+    delete_agent_dialogue,
     get_soul_profile,
+    list_agent_dialogues,
     match_soul_agents,
     run_agent_dialogue,
+    stream_agent_dialogue,
 )
 
 
@@ -100,3 +104,71 @@ def soul_dialogue():
     except AgentDemoError as error:
         return jsonify({"error": {"message": str(error)}}), 400
     return jsonify({"data": result}), 201
+
+
+@agent_bp.post("/dialogue/stream")
+def soul_dialogue_stream():
+    if _rate_limited("dialogue", 5):
+        return _rate_limit_error()
+    payload = _payload()
+    if payload is None:
+        return jsonify({"error": {"message": "请求体必须是 JSON 对象。"}}), 400
+    user_id = _demo_user_id(payload.get("user_id"))
+    target = payload.get("target_user_id")
+    target_user_id = _demo_user_id(target, "") if target is not None else None
+
+    try:
+        events = stream_agent_dialogue(user_id, target_user_id)
+    except AgentDemoError as error:
+        return jsonify({"error": {"message": str(error)}}), 400
+
+    @stream_with_context
+    def generate():
+        try:
+            for event in events:
+                yield json.dumps(event, ensure_ascii=False) + "\n"
+        except GeneratorExit:
+            raise
+        except Exception:
+            current_app.logger.exception("Soul Echo 流式对话生成失败")
+            yield json.dumps(
+                {
+                    "type": "error",
+                    "data": {"message": "这次灵魂碰撞意外中断，请重新尝试。"},
+                },
+                ensure_ascii=False,
+            ) + "\n"
+        finally:
+            close = getattr(events, "close", None)
+            if close is not None:
+                close()
+
+    return Response(
+        generate(),
+        content_type="application/x-ndjson; charset=utf-8",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@agent_bp.get("/dialogues")
+def soul_dialogue_history():
+    if _rate_limited("dialogue_history", 10):
+        return _rate_limit_error()
+    user_id = _demo_user_id(request.args.get("user_id"))
+    try:
+        result = list_agent_dialogues(user_id)
+    except AgentDemoError as error:
+        return jsonify({"error": {"message": str(error)}}), 404
+    return jsonify({"data": result})
+
+
+@agent_bp.delete("/dialogues/<dialogue_id>")
+def delete_soul_dialogue(dialogue_id: str):
+    if _rate_limited("dialogue_delete", 10):
+        return _rate_limit_error()
+    user_id = _demo_user_id(request.args.get("user_id"))
+    try:
+        result = delete_agent_dialogue(user_id, dialogue_id)
+    except AgentDemoError as error:
+        return jsonify({"error": {"message": str(error)}}), 404
+    return jsonify({"data": result})
