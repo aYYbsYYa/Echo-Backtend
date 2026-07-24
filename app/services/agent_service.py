@@ -1,6 +1,8 @@
 import json
 import re
+from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +49,7 @@ CONTACT_TERMS = (
     "见面",
     "线下联系",
 )
+MESSAGE_SIMILARITY_THRESHOLD = 0.86
 
 
 PROFILE_SYSTEM_PROMPT = """
@@ -365,27 +368,155 @@ def _profile_summary(profile: dict[str, Any]) -> str:
     )
 
 
-def _fallback_agent_message(profile: dict[str, Any], responding: bool = False) -> str:
+def _distinctive_profile_item(
+    profile: dict[str, Any],
+    peer_profile: dict[str, Any],
+    field: str,
+    offset: int = 0,
+) -> str:
     persona = profile["persona"]
-    lead = "听见你的表达后，我的主人也想回应：" if responding else "我的主人最近正在寻找："
-    return (
-        f"{lead}{persona['identity']}。"
-        f"他重视{persona['values'][0]}，也期待有人理解这种感受。"
+    peer_persona = peer_profile["persona"]
+    own_items = [
+        item.strip()
+        for item in persona.get(field, [])
+        if isinstance(item, str) and item.strip()
+    ]
+    peer_items = {
+        item.strip().lower()
+        for item in peer_persona.get(field, [])
+        if isinstance(item, str) and item.strip()
+    }
+    candidates = [item for item in own_items if item.strip().lower() not in peer_items]
+    pool = candidates or own_items
+    if not pool:
+        return "真实感受"
+    identity = str(profile.get("user_id") or profile.get("id") or profile.get("name", ""))
+    stable_index = (sum(ord(character) for character in identity) + offset) % len(pool)
+    return pool[stable_index]
+
+
+def _normalized_message(text: str) -> str:
+    return re.sub(r"[\W_]+", "", text, flags=re.UNICODE).lower()
+
+
+def _repeats_conversation(text: str, conversation: list[dict[str, Any]]) -> bool:
+    candidate = _normalized_message(text)
+    if not candidate:
+        return True
+    for item in conversation:
+        previous = _normalized_message(str(item.get("text", "")))
+        if not previous:
+            continue
+        if candidate == previous:
+            return True
+        if SequenceMatcher(None, candidate, previous).ratio() >= MESSAGE_SIMILARITY_THRESHOLD:
+            return True
+    return False
+
+
+def _fallback_agent_message(
+    profile: dict[str, Any],
+    peer_profile: dict[str, Any],
+    round_number: int = 1,
+    speaker_position: int = 0,
+    variant: int = 0,
+) -> str:
+    persona = profile["persona"]
+    interest = _distinctive_profile_item(
+        profile, peer_profile, "interests", offset=round_number + speaker_position
     )
+    value = _distinctive_profile_item(
+        profile, peer_profile, "values", offset=round_number + speaker_position
+    )
+    if variant == 1:
+        return f"{profile['name']}想从{interest}出发，和你一起确认{value}怎样进入真实生活。"
+    if variant == 2:
+        return f"对我的主人而言，此刻更重要的是{value}；{interest}只是抵达它的一条路径。"
+    if variant == 3:
+        return f"这次交流让我的主人重新看见{interest}，也更愿意把{value}落实为行动。"
+    if variant == 4:
+        return f"我的主人没有现成答案，但愿意围绕{value}，继续和你讨论{interest}。"
+    if variant == 5:
+        return f"如果只留下两个关键词，我的主人会选择{interest}与{value}，并从这里继续。"
+    if variant == 6:
+        return f"{value}是{profile['name']}此刻想守住的核心，而{interest}会是下一步实践。"
+    if round_number == 1:
+        if speaker_position == 0:
+            return f"我的主人最近正在寻找：{persona['identity']}。他尤其在意{value}。"
+        return f"听见你的开场后，我的主人也想回应：{persona['identity']}。他想从{interest}谈起。"
+    if round_number == 2:
+        if speaker_position == 0:
+            return f"把上一轮的回应接回来，我的主人更想追问：{interest}怎样才能守住{value}，而不只停留在想法里？"
+        return f"你把问题推进了一步。对我的主人来说，{interest}只有朝向{value}，才可能成为真实的改变。"
+    if speaker_position == 0:
+        return f"如果为这次相遇留下一个方向，我的主人愿意继续用{interest}靠近{value}。"
+    return f"作为最后的回应，我的主人想补上一句：愿我们带着{value}，把{interest}继续做下去。"
+
+
+def _unique_fallback_agent_message(
+    profile: dict[str, Any],
+    peer_profile: dict[str, Any],
+    conversation: list[dict[str, Any]],
+    round_number: int,
+    speaker_position: int,
+) -> str:
+    for variant in range(7):
+        fallback = _fallback_agent_message(
+            profile,
+            peer_profile,
+            round_number=round_number,
+            speaker_position=speaker_position,
+            variant=variant,
+        )
+        if not _repeats_conversation(fallback, conversation):
+            return fallback
+    raise AgentDemoError("Soul Agent 无法生成不重复的安全表达。")
 
 
 def _agent_message(
-    profile: dict[str, Any], peer_profile: dict[str, Any], previous: str | None = None
+    profile: dict[str, Any],
+    peer_profile: dict[str, Any],
+    conversation: list[dict[str, Any]] | None = None,
+    round_number: int = 1,
+    speaker_position: int = 0,
 ) -> str:
+    history = conversation or []
     context = (
         f"你的主人画像：\n{_profile_summary(profile)}\n\n"
         f"对方匿名画像：\n{_profile_summary(peer_profile)}"
     )
-    if previous:
-        context += f"\n\n对方刚才的表达：{previous}\n请回应其中真正有共鸣的部分。"
+    if history:
+        transcript = "\n".join(
+            f"第{item['round']}轮 {item['from']}：{item['text']}" for item in history
+        )
+        context += f"\n\n此前对话：\n{transcript}"
+    if round_number == 1 and not history:
+        instruction = "请先表达主人正在寻找的理解与共同主题。"
+    elif round_number == 1:
+        instruction = "请回应对方第一轮表达中真正有共鸣的部分。"
+    elif round_number == 2:
+        instruction = "请在第二轮回应对方最新表达并推进共同主题，增加一个更具体的感受或思考。"
     else:
-        context += "\n\n请先表达主人正在寻找的理解与共同主题。"
-    fallback = _fallback_agent_message(profile, responding=bool(previous))
+        instruction = "这是第三轮，请回应对方最新表达并从你主人的角度收束，留下克制而开放的一句话。"
+    distinctive_interest = _distinctive_profile_item(
+        profile, peer_profile, "interests", offset=round_number + speaker_position
+    )
+    distinctive_value = _distinctive_profile_item(
+        profile, peer_profile, "values", offset=round_number + speaker_position
+    )
+    context += (
+        f"\n\n当前是第 {round_number} 轮，你是本轮"
+        f"{'先发言方' if speaker_position == 0 else '后发言方'}。{instruction}"
+        f"请优先从你主人更独特的线索“{distinctive_interest}”或“{distinctive_value}”出发，"
+        "不要复用此前任何消息的完整句子、开头句式或结论。"
+    )
+    fallback = _unique_fallback_agent_message(
+        profile,
+        peer_profile,
+        history,
+        round_number=round_number,
+        speaker_position=speaker_position,
+    )
     generated = chat_completion(
         [
             {"role": "system", "content": AGENT_MESSAGE_SYSTEM_PROMPT},
@@ -393,19 +524,25 @@ def _agent_message(
         ],
         timeout=8,
     )
-    return _safe_model_text(generated, fallback, 90)
+    candidate = _safe_model_text(generated, fallback, 90)
+    return fallback if _repeats_conversation(candidate, history) else candidate
 
 
 def _echo_text(
-    source_profile: dict[str, Any], target_profile: dict[str, Any], first: str, second: str
+    source_profile: dict[str, Any],
+    target_profile: dict[str, Any],
+    conversation: list[dict[str, Any]],
 ) -> str:
+    transcript = "\n".join(
+        f"第{item['round']}轮 {item['from']}：{item['text']}" for item in conversation
+    )
     generated = chat_completion(
         [
             {"role": "system", "content": ECHO_SYSTEM_PROMPT},
             {
                 "role": "user",
                 "content": (
-                    f"Soul A：{first}\nSoul B：{second}\n"
+                    f"完整对话：\n{transcript}\n"
                     f"共同价值线索：{source_profile['persona']['values'][0]}、"
                     f"{target_profile['persona']['values'][0]}"
                 ),
@@ -425,8 +562,8 @@ def _echo_text(
     )
 
 
-def run_agent_dialogue(
-    user_id: str = "yeve", target_user_id: str | None = None
+def _dialogue_session(
+    user_id: str, target_user_id: str | None
 ) -> dict[str, Any]:
     source = _demo_user(user_id)
     if target_user_id is None:
@@ -440,27 +577,149 @@ def run_agent_dialogue(
 
     source_profile = _seed_profile(source)
     target_profile = _seed_profile(target)
-    first = _agent_message(source_profile, target_profile)
-    second = _agent_message(target_profile, source_profile, previous=first)
-    echo = _echo_text(source_profile, target_profile, first, second)
     relation = _match_entry(source, target)
+    return {
+        "user_id": user_id,
+        "target_user_id": target_user_id,
+        "source_profile": source_profile,
+        "target_profile": target_profile,
+        "relation": relation,
+    }
+
+
+def _dialogue_messages(session: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    conversation: list[dict[str, Any]] = []
+    speakers = (
+        (
+            session["source_profile"],
+            session["target_profile"],
+            session["user_id"],
+        ),
+        (
+            session["target_profile"],
+            session["source_profile"],
+            session["target_user_id"],
+        ),
+    )
+    for round_number in range(1, 4):
+        for speaker_position, (profile, peer_profile, speaker_id) in enumerate(speakers):
+            text = _agent_message(
+                profile,
+                peer_profile,
+                conversation=conversation,
+                round_number=round_number,
+                speaker_position=speaker_position,
+            )
+            message = {
+                "round": round_number,
+                "from": profile["name"],
+                "user_id": speaker_id,
+                "text": text,
+            }
+            conversation.append(message)
+            yield message
+
+
+def _complete_dialogue(
+    session: dict[str, Any], conversation: list[dict[str, Any]]
+) -> dict[str, Any]:
+    if len(conversation) != 6:
+        raise AgentDemoError("Soul Agent 对话未完整结束。")
+    source_profile = session["source_profile"]
+    target_profile = session["target_profile"]
+    relation = session["relation"]
+    echo = _echo_text(source_profile, target_profile, conversation)
 
     result = {
-        "id": new_id("dialogue", f"{user_id}:{target_user_id}"),
+        "id": new_id(
+            "dialogue", f"{session['user_id']}:{session['target_user_id']}"
+        ),
+        "user_id": session["user_id"],
+        "target_user_id": session["target_user_id"],
         "agent_a": source_profile["name"],
         "agent_b": target_profile["name"],
         "score": relation["score"],
         "reason": relation["reason"],
-        "conversation": [
-            {"from": source_profile["name"], "user_id": user_id, "text": first},
-            {
-                "from": target_profile["name"],
-                "user_id": target_user_id,
-                "text": second,
-            },
-        ],
+        "conversation": conversation,
         "echo": echo,
         "created_at": utc_now(),
     }
     dialogues.append(result, max_records=100)
     return result
+
+
+def run_agent_dialogue(
+    user_id: str = "yeve", target_user_id: str | None = None
+) -> dict[str, Any]:
+    session = _dialogue_session(user_id, target_user_id)
+    conversation = list(_dialogue_messages(session))
+    return _complete_dialogue(session, conversation)
+
+
+def stream_agent_dialogue(
+    user_id: str = "yeve", target_user_id: str | None = None
+) -> Iterator[dict[str, Any]]:
+    session = _dialogue_session(user_id, target_user_id)
+
+    def generate() -> Iterator[dict[str, Any]]:
+        yield {
+            "type": "start",
+            "data": {
+                "agent_a": session["source_profile"]["name"],
+                "agent_b": session["target_profile"]["name"],
+                "score": session["relation"]["score"],
+                "reason": session["relation"]["reason"],
+            },
+        }
+        conversation = []
+        for message in _dialogue_messages(session):
+            conversation.append(message)
+            yield {"type": "message", "data": message}
+        result = _complete_dialogue(session, conversation)
+        yield {"type": "echo", "data": {"echo": result["echo"]}}
+        yield {
+            "type": "done",
+            "data": {
+                "dialogue_id": result["id"],
+                "created_at": result["created_at"],
+            },
+        }
+
+    return generate()
+
+
+def _dialogue_belongs_to(record: dict[str, Any], user_id: str) -> bool:
+    direct_ids = {record.get("user_id"), record.get("target_user_id")}
+    if "user_id" in record or "target_user_id" in record:
+        return user_id in direct_ids
+    conversation = record.get("conversation")
+    if not isinstance(conversation, list):
+        conversation = []
+    conversation_ids = {
+        item.get("user_id")
+        for item in conversation
+        if isinstance(item, dict)
+    }
+    return user_id in direct_ids or user_id in conversation_ids
+
+
+def list_agent_dialogues(user_id: str = "yeve", limit: int = 20) -> list[dict[str, Any]]:
+    _demo_user(user_id)
+    related = [
+        record
+        for record in dialogues.all()
+        if isinstance(record, dict) and _dialogue_belongs_to(record, user_id)
+    ]
+    related.sort(key=lambda item: str(item.get("created_at", "")), reverse=True)
+    return related[: max(0, limit)]
+
+
+def delete_agent_dialogue(user_id: str, dialogue_id: str) -> dict[str, Any]:
+    _demo_user(user_id)
+    deleted = dialogues.delete(
+        dialogue_id,
+        predicate=lambda record: _dialogue_belongs_to(record, user_id),
+    )
+    if deleted is None:
+        raise AgentDemoError("未找到可删除的历史回响。")
+    return {"id": dialogue_id, "deleted": True}

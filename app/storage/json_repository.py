@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from threading import Lock
-from typing import Any
+from typing import Any, Callable
 
 
 class JsonRepository:
@@ -60,3 +60,21 @@ class JsonRepository:
 
     def find(self, record_id: str) -> dict[str, Any] | None:
         return next((record for record in self.all() if record.get("id") == record_id), None)
+
+    def delete(
+        self,
+        record_id: str,
+        key: str = "id",
+        predicate: Callable[[dict[str, Any]], bool] | None = None,
+    ) -> dict[str, Any] | None:
+        with self.lock:
+            records = self._read_unlocked()
+            for index, record in enumerate(records):
+                if record.get(key) != record_id:
+                    continue
+                if predicate is not None and not predicate(record):
+                    return None
+                deleted = records.pop(index)
+                self._write_unlocked(records)
+                return deleted
+        return None
