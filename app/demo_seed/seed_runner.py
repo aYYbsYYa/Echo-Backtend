@@ -25,7 +25,7 @@ EXPECTED_COUNTS = {
     "comments": 28,
     "likes": 76,
     "capsules": 4,
-    "echo_conversations": 1,
+    "echo_conversations": 2,
     "echo_messages": 10,
     "echo_profiles": 1,
     "agent_profiles": 4,

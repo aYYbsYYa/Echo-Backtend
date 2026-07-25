@@ -178,7 +178,10 @@ def build_demo_data(now: datetime | None = None) -> dict[str, list[dict[str, Any
         {"id": "demo_capsule_soon", "content": "60秒之后，愿这朵向日葵告诉你：所有朝着光的等待，都不会被辜负。", "user_id": "demo_user_main", "mood": "calm", "duration": "custom", "custom_seconds": 60, "has_image": True, "created_at": iso(timedelta(seconds=-50)), "unlock_at": iso(timedelta(seconds=10)), "opened_at": None},
     ]
 
-    echo_conversations = [{"id": "demo_echo_conversation_main", "user_id": "demo_user_main", "mode": "listen", "created_at": iso(timedelta(days=-6)), "updated_at": iso(timedelta(days=-1))}]
+    echo_conversations = [
+        {"id": "demo_echo_conversation_main", "user_id": "demo_user_main", "mode": "listen", "created_at": iso(timedelta(days=-6)), "updated_at": iso(timedelta(days=-1))},
+        {"id": "demo_echo_conversation_new", "user_id": "demo_user_main", "mode": "listen", "created_at": iso(timedelta()), "updated_at": iso(timedelta())},
+    ]
     echo_messages = []
     for index, (role, mode, content) in enumerate(ECHO_MESSAGES, 1):
         age = timedelta(days=-6, minutes=index * 7) if index <= 8 else timedelta(days=-1, minutes=(index - 8) * 10)

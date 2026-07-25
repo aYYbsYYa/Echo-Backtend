@@ -95,6 +95,7 @@ class DemoSeedTests(unittest.TestCase):
         planes = client.get("/api/planes/mine/demo_user_main")
         capsules = client.get("/api/capsules/mine/demo_user_main")
         profile = client.get("/api/echo/users/demo_user_main/profile")
+        echo_conversations = client.get("/api/echo/users/demo_user_main/conversations")
         bottle_image = client.get("/api/bottles/demo_bottle_10?user_id=demo_user_main")
         plane_image = client.get("/api/planes/demo_plane_03?user_id=demo_user_main")
 
@@ -112,6 +113,13 @@ class DemoSeedTests(unittest.TestCase):
         self.assertTrue(any(item["is_unlocked"] and not item["opened_at"] for item in capsule_data))
         self.assertTrue(any(not item["is_unlocked"] for item in capsule_data))
         self.assertEqual(profile.get_json()["data"]["status"], "available")
+        conversation_data = echo_conversations.get_json()["data"]
+        self.assertEqual(len(conversation_data), 2)
+        old_conversation = next(item for item in conversation_data if item["id"] == "demo_echo_conversation_main")
+        new_conversation = next(item for item in conversation_data if item["id"] == "demo_echo_conversation_new")
+        self.assertLess(old_conversation["updated_at"], new_conversation["updated_at"])
+        new_conversation_detail = client.get(f"/api/echo/conversations/{new_conversation['id']}")
+        self.assertEqual(new_conversation_detail.get_json()["data"]["messages"], [])
         self.assertEqual(bottle_image.get_json()["data"]["image_url"], "/api/uploads/demo_rainy_walk.jpeg")
         self.assertEqual(plane_image.get_json()["data"]["image_url"], "/api/uploads/demo_sunset.png")
         image_response = client.get("/api/uploads/demo_sunset.png")
