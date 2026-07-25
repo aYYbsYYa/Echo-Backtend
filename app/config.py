@@ -18,8 +18,14 @@ class Config:
         "SENSE_VOICE_MODEL_DIR", "models/sense-voice"
     )
     SENSE_VOICE_THREADS = max(1, int(os.getenv("SENSE_VOICE_THREADS", "4")))
+    TTS_MODEL_DIR = BASE_DIR / os.getenv(
+        "TTS_MODEL_DIR", "models/sherpa-onnx-vits-zh-ll"
+    )
+    TTS_THREADS = max(1, int(os.getenv("TTS_THREADS", "2")))
+    TTS_SPEAKER_ID = max(0, int(os.getenv("TTS_SPEAKER_ID", "2")))
     UPLOAD_DIR = BASE_DIR / os.getenv("UPLOAD_DIR", "data/uploads")
     MAX_IMAGE_SIZE = int(os.getenv("MAX_IMAGE_SIZE", str(5 * 1024 * 1024)))
+    MAX_AUDIO_SIZE = int(os.getenv("MAX_AUDIO_SIZE", str(10 * 1024 * 1024)))
     DEMO_RESET_ON_START = os.getenv("DEMO_RESET_ON_START", "false").lower() == "true"
     JSON_FILES = (
         "users",

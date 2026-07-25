@@ -264,6 +264,9 @@ def generate_echo_reply(
         logger.debug(f"回复长度: {len(reply)}")
         
     except Exception as e:
+        # #region debug-point A-D:echo-generation-error
+        import time, urllib.request; _error_body=""; exec("try:\n _error_body=e.read().decode('utf-8', errors='replace')[:2000]\nexcept Exception:\n pass"); _debug_payload={"sessionId":"echo-reply-500","runId":"pre-fix","hypothesisId":"A-D","location":"echo_service.py:generate_echo_reply","msg":"[DEBUG] Echo generation failed","data":{"exception_type":type(e).__name__,"exception":str(e),"status":getattr(e,"code",None),"response_body":_error_body,"api_url":Config.AI_API_URL,"model":Config.AI_MODEL,"has_key":bool(Config.AI_API_KEY)},"ts":int(time.time()*1000)}; exec("try:\n urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:7777/event',data=json.dumps(_debug_payload,ensure_ascii=False).encode('utf-8'),headers={'Content-Type':'application/json'}),timeout=1).read()\nexcept Exception:\n pass")
+        # #endregion
         logger.error(f"Echo service error: {type(e).__name__}: {e}", exc_info=True)
         return None
 

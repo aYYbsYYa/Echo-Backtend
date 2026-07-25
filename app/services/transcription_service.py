@@ -28,10 +28,26 @@ def _get_recognizer() -> sherpa_onnx.OfflineRecognizer:
         if _recognizer is not None:
             return _recognizer
 
-        model = Config.SENSE_VOICE_MODEL_DIR / "model.int8.onnx"
-        tokens = Config.SENSE_VOICE_MODEL_DIR / "tokens.txt"
-        if not model.is_file() or not tokens.is_file():
+        model_dirs = (
+            Config.SENSE_VOICE_MODEL_DIR,
+            Config.BASE_DIR / "models",
+        )
+        model_names = (
+            "model.int8.onnx",
+            "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8.onnx",
+        )
+        model_pair = next(
+            (
+                (directory / name, directory / "tokens.txt")
+                for directory in model_dirs
+                for name in model_names
+                if (directory / name).is_file() and (directory / "tokens.txt").is_file()
+            ),
+            None,
+        )
+        if model_pair is None:
             raise SenseVoiceError("SenseVoice 模型或词表文件未部署。")
+        model, tokens = model_pair
 
         try:
             _recognizer = sherpa_onnx.OfflineRecognizer.from_sense_voice(
@@ -58,10 +74,10 @@ def transcribe_audio(audio: bytes) -> str:
             BytesIO(audio), dtype="float32", always_2d=False
         )
     except Exception as error:
-        raise SenseVoiceError("无法读取戒指音频。") from error
+        raise SenseVoiceError("无法读取音频。") from error
 
     if not isinstance(waveform, np.ndarray) or waveform.size == 0:
-        raise SenseVoiceError("戒指音频为空。")
+        raise SenseVoiceError("音频为空。")
     if waveform.ndim > 1:
         waveform = waveform[:, 0]
 
