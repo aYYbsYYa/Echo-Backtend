@@ -2,7 +2,6 @@
 .worktrees/
 .env
 data/*.json
-docs/demo-data
 data/capsule_images/
 data/uploads/
 __pycache__/
