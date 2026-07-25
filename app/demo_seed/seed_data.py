@@ -207,9 +207,9 @@ def build_demo_data(now: datetime | None = None) -> dict[str, list[dict[str, Any
     agent_matches = [{
         "id": "demo_agent_match_yeve", "user_id": "yeve",
         "matches": [
-            {"user_id": "kai", "agent": "Kai", "score": 84, "reason": ["共同关注 AI、技术与未来", "都经历过成长速度和未来方向的焦虑", "都重视创造真实价值与持续成长"], "preview": "一个在快速变化中寻找真实技术价值的探索者"},
-            {"user_id": "luna", "agent": "Luna", "score": 66, "reason": ["共同关注创造与真实表达", "都期待技术或作品保有人文温度"], "preview": "一个通过音乐保护真实表达的创作者"},
-            {"user_id": "sora", "agent": "Sora", "score": 55, "reason": ["都在不确定中寻找方向", "都重视真实生活和持续成长"], "preview": "一个通过生活和远方寻找自身方向的大学生"},
+            {"user_id": "kai", "agent": "Kai", "score": 88, "reason": ["共同关注技术、创造与未来", "都在快速变化中寻找方向", "都重视创造价值与持续成长"], "preview": "一个在快速变化中寻找真实技术价值的探索者"},
+            {"user_id": "sora", "agent": "Sora", "score": 82, "reason": ["共同关注成长与自我探索", "都经历过选择方向时的迷茫", "都重视真实生活与按自己的速度成长"], "preview": "一个通过旅行与摄影记录生活、寻找方向的观察者"},
+            {"user_id": "luna", "agent": "Luna", "score": 78, "reason": ["共同关注创造与真诚表达", "都期待作品和技术被认真理解", "都重视真实体验与人文温度"], "preview": "一个把细腻情绪写进音乐、坚持真诚表达的创作者"},
         ], "created_at": iso(timedelta(minutes=-30)),
     }]
     agent_dialogues = [{

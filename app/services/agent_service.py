@@ -366,11 +366,13 @@ def _seed_profile(user: dict[str, Any]) -> dict[str, Any]:
 TAG_SEMANTIC_GROUPS = {
     "技术": ("技术", "温暖技术"),
     "人工智能": ("ai", "人工智能"),
-    "创造": ("创造", "创作"),
-    "成长": ("成长", "自我成长", "持续成长", "按自己的速度成长"),
-    "真实": ("真实体验", "真实生活"),
-    "表达": ("表达", "真诚表达"),
+    "创造": ("创造", "创作", "创造价值"),
+    "成长": ("成长", "自我成长", "持续成长", "按自己的速度成长", "成长焦虑"),
+    "真实": ("真实体验", "真实生活", "真诚表达"),
+    "表达": ("表达", "期待理解"),
     "探索": ("探索", "探索未知", "慢慢探索"),
+    "方向": ("方向迷茫", "意义困惑", "未来焦虑"),
+    "人文温度": ("人文温度",),
 }
 TAG_SEMANTIC_INDEX = {
     alias.lower(): concept
@@ -434,7 +436,7 @@ def _match_entry(source: dict[str, Any], candidate: dict[str, Any]) -> dict[str,
     value_score, common_values = _overlap(
         source_signals.get("values", []), candidate_signals.get("values", [])
     )
-    score = round(45 + 25 * interest_score + 15 * emotion_score + 15 * value_score)
+    score = round(62 + 18 * interest_score + 10 * emotion_score + 10 * value_score)
 
     reasons = []
     if common_interests:
