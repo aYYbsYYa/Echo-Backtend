@@ -382,6 +382,69 @@ class AgentDemoApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["id"] for item in response.get_json()["data"]], ["new", "legacy"])
 
+    def test_dynamic_user_can_list_only_owned_dialogue_history(self) -> None:
+        agent_service.dialogues.append(
+            {
+                "id": "dynamic-owned",
+                "user_id": "demo_user_main",
+                "target_user_id": "kai",
+                "conversation": [],
+                "created_at": "2026-07-25T00:00:00+00:00",
+            }
+        )
+        agent_service.dialogues.append(
+            {
+                "id": "other-user",
+                "user_id": "yeve",
+                "target_user_id": "kai",
+                "conversation": [],
+                "created_at": "2026-07-26T00:00:00+00:00",
+            }
+        )
+
+        response = self.client.get(
+            "/api/agent/dialogues?user_id=demo_user_main"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [item["id"] for item in response.get_json()["data"]],
+            ["dynamic-owned"],
+        )
+
+    def test_dynamic_user_can_delete_only_owned_dialogue_history(self) -> None:
+        owned = {
+            "id": "dynamic-owned",
+            "user_id": "demo_user_main",
+            "target_user_id": "kai",
+            "conversation": [],
+            "created_at": "2026-07-25T00:00:00+00:00",
+        }
+        unrelated = {
+            "id": "other-user",
+            "user_id": "yeve",
+            "target_user_id": "kai",
+            "conversation": [],
+            "created_at": "2026-07-26T00:00:00+00:00",
+        }
+        agent_service.dialogues.append(owned)
+        agent_service.dialogues.append(unrelated)
+
+        forbidden = self.client.delete(
+            "/api/agent/dialogues/other-user?user_id=demo_user_main"
+        )
+        deleted = self.client.delete(
+            "/api/agent/dialogues/dynamic-owned?user_id=demo_user_main"
+        )
+
+        self.assertEqual(forbidden.status_code, 404)
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(
+            deleted.get_json()["data"],
+            {"id": "dynamic-owned", "deleted": True},
+        )
+        self.assertEqual(agent_service.dialogues.all(), [unrelated])
+
     def test_dialogue_history_can_be_permanently_deleted(self) -> None:
         agent_service.dialogues.append(
             {

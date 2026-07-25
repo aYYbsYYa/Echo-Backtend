@@ -888,7 +888,6 @@ def _dialogue_belongs_to(record: dict[str, Any], user_id: str) -> bool:
 
 
 def list_agent_dialogues(user_id: str = "yeve", limit: int = 20) -> list[dict[str, Any]]:
-    _demo_user(user_id)
     related = [
         record
         for record in dialogues.all()
@@ -899,7 +898,6 @@ def list_agent_dialogues(user_id: str = "yeve", limit: int = 20) -> list[dict[st
 
 
 def delete_agent_dialogue(user_id: str, dialogue_id: str) -> dict[str, Any]:
-    _demo_user(user_id)
     deleted = dialogues.delete(
         dialogue_id,
         predicate=lambda record: _dialogue_belongs_to(record, user_id),
