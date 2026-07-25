@@ -8,6 +8,7 @@ from unittest.mock import patch
 from app import create_app
 from app.config import Config
 from app.services import agent_service
+from app.storage.echo_storage import EchoStorage
 from app.storage.json_repository import JsonRepository
 
 
@@ -19,10 +20,12 @@ class AgentDemoApiTests(unittest.TestCase):
             agent_service.profiles,
             agent_service.matches,
             agent_service.dialogues,
+            agent_service.echo_storage,
         )
         agent_service.profiles = JsonRepository(root / "agent_profiles.json")
         agent_service.matches = JsonRepository(root / "agent_matches.json")
         agent_service.dialogues = JsonRepository(root / "agent_dialogues.json")
+        agent_service.echo_storage = EchoStorage(root)
 
         app = create_app()
         app.config["TESTING"] = True
@@ -33,6 +36,7 @@ class AgentDemoApiTests(unittest.TestCase):
             agent_service.profiles,
             agent_service.matches,
             agent_service.dialogues,
+            agent_service.echo_storage,
         ) = self.original_repositories
         self.temporary_directory.cleanup()
 
@@ -73,6 +77,46 @@ class AgentDemoApiTests(unittest.TestCase):
         self.assertNotIn("yeve", [item["user_id"] for item in body["matches"]])
         self.assertTrue(body["matches"][0]["reason"])
         self.assertEqual(len(agent_service.matches.all()), 1)
+
+    def test_real_user_profile_drives_three_demo_matches(self) -> None:
+        user_id = "usr_real"
+        agent_service.echo_storage.save_profile(
+            user_id,
+            {
+                "status": "available",
+                "message_count": 6,
+                "profile_data": {
+                    "persona": {
+                        "identity": "一个重视探索与成长的真实用户",
+                        "traits": ["好奇", "克制"],
+                        "emotion_pattern": ["期待理解", "未来焦虑"],
+                        "interests": ["AI", "技术", "创造"],
+                        "values": ["创造价值", "持续成长"],
+                    },
+                    "communication_style": {"tone": "温和直接"},
+                },
+            },
+        )
+
+        profile_response = self.client.get(f"/api/agent/profile?user_id={user_id}")
+        match_response = self.client.post(
+            "/api/agent/match", json={"user_id": user_id, "limit": 3}
+        )
+
+        profile = profile_response.get_json()["data"]
+        matched_ids = {item["user_id"] for item in match_response.get_json()["data"]["matches"]}
+        self.assertEqual(profile_response.status_code, 200)
+        self.assertEqual(profile["generated_by"], "echo_profile")
+        self.assertEqual(profile["history_count"], 6)
+        self.assertEqual(match_response.status_code, 200)
+        self.assertEqual(matched_ids, {"sora", "luna", "kai"})
+        self.assertNotIn("yeve", matched_ids)
+
+    def test_real_user_without_profile_is_sent_to_echo(self) -> None:
+        response = self.client.get("/api/agent/profile?user_id=usr_missing")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("请先去灵笺", response.get_json()["error"]["message"])
 
     def test_dialogue_runs_two_agents_then_generates_echo(self) -> None:
         with patch.object(agent_service, "chat_completion", return_value=None):
@@ -355,13 +399,11 @@ class AgentDemoApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(agent_service.dialogues.all(), [record])
 
-    def test_profile_rejects_unknown_demo_agent(self) -> None:
+    def test_profile_rejects_user_without_echo_profile(self) -> None:
         response = self.client.get("/api/agent/profile?user_id=unknown")
 
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(
-            response.get_json()["error"]["message"], "未找到这个 Demo Soul Agent。"
-        )
+        self.assertIn("请先去灵笺", response.get_json()["error"]["message"])
 
     def test_match_rejects_limit_outside_demo_pool(self) -> None:
         response = self.client.post(

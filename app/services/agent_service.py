@@ -9,6 +9,7 @@ from typing import Any
 from app.config import Config
 from app.services.ai_service import chat_completion
 from app.services.content_service import new_id, utc_now
+from app.storage.echo_storage import EchoStorage
 from app.storage.json_repository import JsonRepository
 
 
@@ -23,6 +24,8 @@ DEMO_USERS_PATH = (
 profiles = JsonRepository(Config.DATA_DIR / "agent_profiles.json")
 matches = JsonRepository(Config.DATA_DIR / "agent_matches.json")
 dialogues = JsonRepository(Config.DATA_DIR / "agent_dialogues.json")
+echo_storage = EchoStorage(Config.DATA_DIR)
+SOUL_CANDIDATE_IDS = {"sora", "luna", "kai"}
 
 CONTACT_PATTERN = re.compile(
     r"(?:[\w.+-]+@[\w.-]+\.[A-Za-z]{2,})|(?:https?://\S+)|(?:www\.\S+)|"
@@ -98,6 +101,67 @@ def _demo_user(user_id: str) -> dict[str, Any]:
     if user is None:
         raise AgentDemoError("未找到这个 Demo Soul Agent。")
     return user
+
+
+def _echo_profile_record(user_id: str) -> dict[str, Any] | None:
+    record = echo_storage.get_profile(user_id)
+    if not isinstance(record, dict):
+        return None
+    payload = record.get("profile_data", record)
+    if not isinstance(payload, dict) or payload.get("status") != "available":
+        return None
+    nested = payload.get("profile_data", payload)
+    if not isinstance(nested, dict):
+        return None
+    return {**nested, "message_count": payload.get("message_count", 0)}
+
+
+def _real_user_profile(user_id: str) -> dict[str, Any]:
+    payload = _echo_profile_record(user_id)
+    if payload is None:
+        raise AgentDemoError("你的用户画像尚未形成，请先去灵笺完成至少 5 次表达。")
+    persona = payload.get("persona")
+    communication = payload.get("communication_style")
+    if not isinstance(persona, dict) or not isinstance(communication, dict):
+        raise AgentDemoError("你的用户画像尚未形成，请先去灵笺重新生成画像。")
+    return {
+        "id": user_id,
+        "user_id": user_id,
+        "name": "我的 Soul Agent",
+        "history_count": int(payload.get("message_count", 0)),
+        "persona": persona,
+        "communication_style": communication,
+        "generated_by": "echo_profile",
+        "updated_at": payload.get("updated_at"),
+    }
+
+
+def _profile_signals(profile: dict[str, Any]) -> dict[str, list[str]]:
+    persona = profile.get("persona", {})
+    return {
+        "interests": list(persona.get("interests", [])),
+        "emotions": list(persona.get("emotion_pattern", [])),
+        "values": list(persona.get("values", [])),
+    }
+
+
+def _source_user(user_id: str) -> dict[str, Any]:
+    if user_id in {item.get("id") for item in _demo_users()}:
+        return _demo_user(user_id)
+    profile = _real_user_profile(user_id)
+    return {
+        "id": user_id,
+        "name": profile["name"],
+        "signals": _profile_signals(profile),
+        "soul_profile": profile,
+    }
+
+
+def _source_profile(source: dict[str, Any]) -> dict[str, Any]:
+    profile = source.get("soul_profile")
+    if isinstance(profile, dict):
+        return profile
+    return _seed_profile(source)
 
 
 def _parse_json_object(text: str | None) -> dict[str, Any] | None:
@@ -240,6 +304,8 @@ def _profile_messages(user: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def get_soul_profile(user_id: str = "yeve", refresh: bool = False) -> dict[str, Any]:
+    if user_id not in {item.get("id") for item in _demo_users()}:
+        return _real_user_profile(user_id)
     user = _demo_user(user_id)
     cached = profiles.find(user_id)
     if cached is not None and not refresh:
@@ -341,7 +407,7 @@ def _match_entry(source: dict[str, Any], candidate: dict[str, Any]) -> dict[str,
 
 
 def match_soul_agents(user_id: str = "yeve", limit: int = 3) -> dict[str, Any]:
-    source = _demo_user(user_id)
+    source = _source_user(user_id)
     get_soul_profile(user_id)
     ranked = _rank_candidates(source, limit)
     result = {
@@ -359,7 +425,8 @@ def _rank_candidates(source: dict[str, Any], limit: int) -> list[dict[str, Any]]
         (
             _match_entry(source, candidate)
             for candidate in _demo_users()
-            if candidate.get("id") != source.get("id")
+            if candidate.get("id") in SOUL_CANDIDATE_IDS
+            and candidate.get("id") != source.get("id")
         ),
         key=lambda item: (-item["score"], item["user_id"]),
     )[:limit]
@@ -379,12 +446,19 @@ def _profile_summary(profile: dict[str, Any]) -> str:
 
 def _owner_voice_samples(user_id: str) -> str:
     """把主人的真实历史表达作为语言风格样本，而非让模型只看抽象画像。"""
-    user = _demo_user(user_id)
-    samples = [
-        str(item.get("text", "")).strip()
-        for item in user.get("history", [])
-        if isinstance(item, dict) and str(item.get("text", "")).strip()
-    ]
+    demo = next((item for item in _demo_users() if item.get("id") == user_id), None)
+    if demo is not None:
+        samples = [
+            str(item.get("text", "")).strip()
+            for item in demo.get("history", [])
+            if isinstance(item, dict) and str(item.get("text", "")).strip()
+        ]
+    else:
+        samples = [
+            str(item.get("content", "")).strip()
+            for item in echo_storage.get_user_all_messages(user_id)
+            if item.get("role") == "user" and str(item.get("content", "")).strip()
+        ]
     return "\n".join(f"- {text}" for text in samples[-4:])
 
 
@@ -621,7 +695,7 @@ def _echo_text(
 def _dialogue_session(
     user_id: str, target_user_id: str | None
 ) -> dict[str, Any]:
-    source = _demo_user(user_id)
+    source = _source_user(user_id)
     if target_user_id is None:
         candidates = _rank_candidates(source, 1)
         if not candidates:
@@ -629,9 +703,11 @@ def _dialogue_session(
         target_user_id = candidates[0]["user_id"]
     if target_user_id == user_id:
         raise AgentDemoError("Soul Agent 不能与自己进行碰撞。")
+    if target_user_id not in SOUL_CANDIDATE_IDS:
+        raise AgentDemoError("请选择 Sora、Luna 或 Kai 进行灵魂碰撞。")
     target = _demo_user(target_user_id)
 
-    source_profile = _seed_profile(source)
+    source_profile = _source_profile(source)
     target_profile = _seed_profile(target)
     relation = _match_entry(source, target)
     return {
