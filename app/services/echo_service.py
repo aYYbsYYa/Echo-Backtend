@@ -7,13 +7,16 @@ import logging
 from app.config import Config
 
 # 配置日志
+log_dir = Config.BASE_DIR / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
+
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s] %(message)s',
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler('d:/echo_debug.log'),
-        logging.StreamHandler()
-    ]
+        logging.FileHandler(log_dir / "echo_debug.log", encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
 
