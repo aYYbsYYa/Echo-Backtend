@@ -363,13 +363,63 @@ def _seed_profile(user: dict[str, Any]) -> dict[str, Any]:
     return profile
 
 
+TAG_SEMANTIC_GROUPS = {
+    "技术": ("技术", "温暖技术"),
+    "人工智能": ("ai", "人工智能"),
+    "创造": ("创造", "创作"),
+    "成长": ("成长", "自我成长", "持续成长", "按自己的速度成长"),
+    "真实": ("真实体验", "真实生活"),
+    "表达": ("表达", "真诚表达"),
+    "探索": ("探索", "探索未知", "慢慢探索"),
+}
+TAG_SEMANTIC_INDEX = {
+    alias.lower(): concept
+    for concept, aliases in TAG_SEMANTIC_GROUPS.items()
+    for alias in aliases
+}
+SEMANTIC_MATCH_WEIGHT = 0.8
+
+
+def _normalized_tag(tag: str) -> tuple[str, str]:
+    normalized = re.sub(r"[\s、，。；：/_-]+", "", tag).lower()
+    concept = TAG_SEMANTIC_INDEX.get(normalized, normalized)
+    return normalized, concept
+
+
 def _overlap(left: list[str], right: list[str]) -> tuple[float, list[str]]:
-    left_set = {item.strip().lower() for item in left if item.strip()}
-    right_set = {item.strip().lower() for item in right if item.strip()}
-    if not left_set or not right_set:
+    left_tags = {
+        _normalized_tag(item)
+        for item in left
+        if isinstance(item, str) and item.strip()
+    }
+    right_tags = {
+        _normalized_tag(item)
+        for item in right
+        if isinstance(item, str) and item.strip()
+    }
+    if not left_tags or not right_tags:
         return 0.0, []
-    common = sorted(left_set & right_set)
-    return len(common) / min(len(left_set), len(right_set)), common
+
+    matches_found = []
+    used_right = set()
+    for left_raw, left_concept in sorted(left_tags):
+        candidates = []
+        for right_raw, right_concept in right_tags:
+            if (right_raw, right_concept) in used_right or left_concept != right_concept:
+                continue
+            weight = 1.0 if left_raw == right_raw else SEMANTIC_MATCH_WEIGHT
+            candidates.append((weight, right_raw, right_concept))
+        if not candidates:
+            continue
+        weight, right_raw, right_concept = max(candidates)
+        used_right.add((right_raw, right_concept))
+        matches_found.append((weight, left_concept))
+
+    score = sum(weight for weight, _ in matches_found) / min(
+        len(left_tags), len(right_tags)
+    )
+    common = sorted({concept for _, concept in matches_found})
+    return score, common
 
 
 def _match_entry(source: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:

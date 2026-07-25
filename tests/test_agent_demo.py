@@ -112,6 +112,45 @@ class AgentDemoApiTests(unittest.TestCase):
         self.assertEqual(matched_ids, {"sora", "luna", "kai"})
         self.assertNotIn("yeve", matched_ids)
 
+    def test_demo_user_main_gets_distinct_candidate_scores_and_reasons(self) -> None:
+        agent_service.echo_storage.save_profile(
+            "demo_user_main",
+            {
+                "status": "available",
+                "message_count": 5,
+                "profile_data": {
+                    "persona": {
+                        "identity": "一个在未来选择中寻找真实方向的年轻探索者",
+                        "traits": ["善于自省", "表达克制", "重视长期意义"],
+                        "emotion_pattern": [
+                            "面对外界期待时容易自我施压",
+                            "在不确定中反复确认选择是否真实",
+                        ],
+                        "interests": ["温暖技术", "创造", "自我成长"],
+                        "values": ["真实体验", "创造价值", "按自己的速度成长"],
+                    },
+                    "communication_style": {"tone": "沉静、真诚、带有反思感"},
+                },
+            },
+        )
+        response = self.client.post(
+            "/api/agent/match", json={"user_id": "demo_user_main", "limit": 3}
+        )
+
+        result = response.get_json()["data"]
+        matches = {item["user_id"]: item for item in result["matches"]}
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(set(matches), {"sora", "luna", "kai"})
+        self.assertEqual(len({item["score"] for item in matches.values()}), 3)
+        self.assertEqual(
+            len({tuple(item["reason"]) for item in matches.values()}), 3
+        )
+        self.assertGreater(matches["kai"]["score"], matches["sora"]["score"])
+        self.assertGreater(matches["sora"]["score"], matches["luna"]["score"])
+        self.assertIn("共同关注技术", matches["kai"]["reason"])
+        self.assertIn("共同关注成长", matches["sora"]["reason"])
+        self.assertIn("共同关注创造", matches["luna"]["reason"])
+
     def test_real_user_without_profile_is_sent_to_echo(self) -> None:
         response = self.client.get("/api/agent/profile?user_id=usr_missing")
 

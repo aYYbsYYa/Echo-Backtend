@@ -20,6 +20,7 @@ class Config:
     SENSE_VOICE_THREADS = max(1, int(os.getenv("SENSE_VOICE_THREADS", "4")))
     UPLOAD_DIR = BASE_DIR / os.getenv("UPLOAD_DIR", "data/uploads")
     MAX_IMAGE_SIZE = int(os.getenv("MAX_IMAGE_SIZE", str(5 * 1024 * 1024)))
+    DEMO_RESET_ON_START = os.getenv("DEMO_RESET_ON_START", "false").lower() == "true"
     JSON_FILES = (
         "users",
         "bottles",
@@ -27,6 +28,9 @@ class Config:
         "comments",
         "likes",
         "capsules",
+        "echo_conversations",
+        "echo_messages",
+        "echo_profiles",
         "agent_profiles",
         "agent_matches",
         "agent_dialogues",

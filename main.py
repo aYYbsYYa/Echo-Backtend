@@ -9,4 +9,9 @@ if __name__ == "__main__":
         print(f"{rule.methods} {rule.rule} -> {rule.endpoint}")
     print("=" * 50 + "\n")
     
-    app.run(host="0.0.0.0", port=app.config["PORT"], debug=app.config["DEBUG"])
+    app.run(
+        host="0.0.0.0",
+        port=app.config["PORT"],
+        debug=app.config["DEBUG"],
+        use_reloader=False,
+    )

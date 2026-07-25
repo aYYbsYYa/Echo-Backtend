@@ -14,6 +14,10 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config.from_object(Config)
     Config.ensure_data_files()
+    if app.config["DEMO_RESET_ON_START"]:
+        from .demo_seed import reset_and_seed_demo_data
+
+        reset_and_seed_demo_data()
 
     app.register_blueprint(user_bp, url_prefix="/api/users")
     app.register_blueprint(bottle_bp, url_prefix="/api/bottles")
