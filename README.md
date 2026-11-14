@@ -283,7 +283,7 @@ python -m unittest discover -s tests -p "test_*.py" -v
 
 ## 七、开发记录
 
-- 提交总数 39 次，时间跨度 2026-07-23 ~ 2026-07-25，主分支 `main` 保留完整历史；`add-agent-to-agent-fix`、`add_aagent_to_agennt` 为 Agent to Agent 的并行开发分支。
+- 原项目开发提交 39 次，时间跨度 2026-07-23 ~ 2026-07-25；2026-11 为本次赛项提交另加文档与安全清理类提交。完整历史保留在 `main` 分支，未做压缩、改写或 rebase，可用 `git log --follow` 逐条核对；`add-agent-to-agent-fix`、`add_aagent_to_agennt` 为 Agent to Agent 的并行开发分支。
 - 主要演进：项目初始化 → 漂流瓶与纸飞机 → SenseVoice 转写 → 时间胶囊 → Soul Agent 与 Agent to Agent → 灵笺 → 演示种子 → 语音转写与合成（HEAD）。
 - 本项目曾获 **百度秒哒 · 应用美学赛道 最佳交互奖**。
 
