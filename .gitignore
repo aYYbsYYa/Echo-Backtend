@@ -1,6 +1,10 @@
 # Local Git worktrees
 .worktrees/
 .env
+.env.*
+!.env.example
+.venv/
+venv/
 data/*.json
 data/capsule_images/
 data/uploads/

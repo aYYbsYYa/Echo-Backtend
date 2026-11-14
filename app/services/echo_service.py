@@ -251,22 +251,16 @@ def generate_echo_reply(
         logger.debug(f"=== 开始AI请求 ===")
         logger.debug(f"模式: {mode}")
         logger.debug(f"消息数: {len(messages)}")
-        logger.debug(f"用户消息: {user_message}")
         logger.debug(f"用户消息长度: {len(user_message)}")
         
         with urlopen(request, timeout=30) as response:
             body = json.loads(response.read().decode("utf-8"))
         
         logger.debug(f"AI响应状态码: {response.status}")
-        logger.debug(f"AI响应body: {body}")
         reply = body["choices"][0]["message"]["content"]
-        logger.debug(f"AI回复内容: {reply}")
         logger.debug(f"回复长度: {len(reply)}")
         
     except Exception as e:
-        # #region debug-point A-D:echo-generation-error
-        import time, urllib.request; _error_body=""; exec("try:\n _error_body=e.read().decode('utf-8', errors='replace')[:2000]\nexcept Exception:\n pass"); _debug_payload={"sessionId":"echo-reply-500","runId":"pre-fix","hypothesisId":"A-D","location":"echo_service.py:generate_echo_reply","msg":"[DEBUG] Echo generation failed","data":{"exception_type":type(e).__name__,"exception":str(e),"status":getattr(e,"code",None),"response_body":_error_body,"api_url":Config.AI_API_URL,"model":Config.AI_MODEL,"has_key":bool(Config.AI_API_KEY)},"ts":int(time.time()*1000)}; exec("try:\n urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:7777/event',data=json.dumps(_debug_payload,ensure_ascii=False).encode('utf-8'),headers={'Content-Type':'application/json'}),timeout=1).read()\nexcept Exception:\n pass")
-        # #endregion
         logger.error(f"Echo service error: {type(e).__name__}: {e}", exc_info=True)
         return None
 
@@ -295,7 +289,6 @@ def generate_echo_reply(
             reply = reply[:80] + "..."
     
     logger.debug(f"最终回复长度: {len(reply)}")
-    logger.debug(f"最终回复内容: {reply[:50]}...")
     
     if not reply:
         logger.error(f"回复为空字符串！")
@@ -390,7 +383,7 @@ def generate_profile_summary(user_messages: list[dict]) -> dict | None:
             body = json.loads(response.read().decode("utf-8"))
         
         ai_response = body["choices"][0]["message"]["content"].strip()
-        logger.debug(f"[画像生成] AI返回: {ai_response}")
+        logger.debug(f"[画像生成] AI返回长度: {len(ai_response) if isinstance(ai_response, str) else type(ai_response).__name__}")
         
         # 解析JSON
         profile_json = _parse_json_from_response(ai_response)
