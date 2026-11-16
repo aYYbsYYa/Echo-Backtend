@@ -6,7 +6,7 @@ Yeve Echo 的接入层服务，基于 **Flask + JSON 文件存储 + 本地 ONNX 
 
 服务端刻意保持轻薄：它只做**数据存取、AI 编排与内容安全兜底**，把「不被围观」的产品规则实打实地写进接口——互动数据只随发布者本人的请求返回，心笺未到期时连配图都不可访问。
 
-- 在线演示：<https://echo.yeve.top>
+- 在线演示：<https://echo.yyoo.fun>
 - 健康检查：<https://echoapi.yyoo.fun/api/health>（本地为 `http://localhost:3000/api/health`）
 - 内置体验页：`http://localhost:3000/echo_demo.html`
 
